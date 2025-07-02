@@ -44,14 +44,14 @@ public class UserRepositoryAdapter implements UserRepositoryPort {
 
     }
 
-    private UserEntity toEntity(User user){
+    private UserEntity toEntity(User domain) {
         return UserEntity.builder()
-                .id(user.getId())
-                .username(user.getUsername())
-                .email(user.getEmail())
-                .password(user.getPassword())
-                .createdAt(user.getCreatedAt())
-                .authProvider(user.getAuthProvider())
+                .id(domain.getId())
+                .username(domain.getUsername())
+                .email(domain.getEmail())
+                .password(domain.getPassword())
+                .createdAt(domain.getCreatedAt())
+                .authProvider(domain.getAuthProvider())
                 .build();
     }
 }

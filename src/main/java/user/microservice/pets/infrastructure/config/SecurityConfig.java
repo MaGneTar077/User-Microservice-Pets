@@ -13,8 +13,11 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/user/register").permitAll()
+                        .requestMatchers("/oauth2/**", "/login/**", "/user/register").permitAll()
                         .anyRequest().authenticated()
+                )
+                .oauth2Login(oauth2 -> oauth2
+                        .defaultSuccessUrl("/oauth2/callback", true)
                 )
                 .csrf(csrf -> csrf.disable())
                 .build();
