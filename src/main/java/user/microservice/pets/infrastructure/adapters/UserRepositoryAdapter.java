@@ -1,11 +1,11 @@
-package user.microservice.pets.infraestructure.adapters;
+package user.microservice.pets.infrastructure.adapters;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import user.microservice.pets.domain.model.User;
 import user.microservice.pets.domain.ports.out.UserRepositoryPort;
-import user.microservice.pets.infraestructure.entity.UserEntity;
-import user.microservice.pets.infraestructure.repositories.UserJpaRepository;
+import user.microservice.pets.infrastructure.entity.UserEntity;
+import user.microservice.pets.infrastructure.repositories.UserJpaRepository;
 
 import java.util.Optional;
 

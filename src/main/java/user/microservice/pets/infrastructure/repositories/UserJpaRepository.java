@@ -1,7 +1,7 @@
-package user.microservice.pets.infraestructure.repositories;
+package user.microservice.pets.infrastructure.repositories;
 
 import org.springframework.data.jpa.repository.JpaRepository;
-import user.microservice.pets.infraestructure.entity.UserEntity;
+import user.microservice.pets.infrastructure.entity.UserEntity;
 
 import java.util.Optional;
 import java.util.UUID;

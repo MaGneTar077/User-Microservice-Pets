@@ -1,4 +1,4 @@
-package user.microservice.pets.infraestructure.entity;
+package user.microservice.pets.infrastructure.entity;
 
 import jakarta.persistence.*;
 import lombok.*;

@@ -1,4 +1,4 @@
-package user.microservice.pets.infraestructure.controllers;
+package user.microservice.pets.infrastructure.controllers;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;

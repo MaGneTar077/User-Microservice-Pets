@@ -1,4 +1,4 @@
-package user.microservice.pets.infraestructure.config;
+package user.microservice.pets.infrastructure.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
