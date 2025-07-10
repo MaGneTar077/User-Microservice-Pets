@@ -9,8 +9,6 @@ import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import user.microservice.pets.application.services.GoogleTokenVerifierService;
 
-import javax.annotation.meta.When;
-
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -63,7 +61,7 @@ public class GoogleTokenVerifierServiceTest {
     }
 
     @Test
-    void shouldThrowExceptionWhenTokenIsValid() throws Exception {
+    void shouldThrowExceptionWhenTokenIsInValid() throws Exception {
 
         //Given
         String invalidToken = "invalid-token";
