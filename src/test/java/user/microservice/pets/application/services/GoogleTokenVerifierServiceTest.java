@@ -1,4 +1,4 @@
-package user.microservice.pets.application.service;
+package user.microservice.pets.application.services;
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
@@ -7,7 +7,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
-import user.microservice.pets.application.services.GoogleTokenVerifierService;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
