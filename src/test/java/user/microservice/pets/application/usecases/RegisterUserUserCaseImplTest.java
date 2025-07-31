@@ -4,6 +4,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.*;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import user.microservice.pets.domain.model.User;
 import user.microservice.pets.domain.ports.out.UserRepositoryPort;
 
@@ -17,6 +18,9 @@ class RegisterUserUseCaseImplTest {
 
     @Mock
     private UserRepositoryPort userRepositoryPort;
+
+    @Mock
+    private PasswordEncoder passwordEncoder;
 
     @InjectMocks
     private RegisterUserUseCaseImpl registerUserUseCase;
@@ -34,7 +38,9 @@ class RegisterUserUseCaseImplTest {
     void shouldRegisterUserWhenEmailNotExists() {
         // Arrange
         when(userRepositoryPort.existsByEmail(user.getEmail())).thenReturn(false);
-        when(userRepositoryPort.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(passwordEncoder.encode(user.getPassword())).thenReturn("encodedPassword");
+        when(userRepositoryPort.save(any(User.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
         // Act
         User result = registerUserUseCase.register(user);
@@ -42,7 +48,7 @@ class RegisterUserUseCaseImplTest {
         // Assert
         assertNotNull(result.getId(), "El ID debe haberse generado");
         assertNotNull(result.getCreatedAt(), "La fecha de creación debe haberse establecido");
-        assertEquals(user.getEmail(), result.getEmail());
+        assertEquals("encodedPassword", result.getPassword());
         verify(userRepositoryPort).save(any(User.class));
     }
 
@@ -56,7 +62,8 @@ class RegisterUserUseCaseImplTest {
             registerUserUseCase.register(user);
         });
 
-        assertEquals("Email already exists", exception.getMessage());
+        assertEquals("Email already exists", exception.getMessage(),
+                "Debe lanzar un error  si el email ya existe");
         verify(userRepositoryPort, never()).save(any(User.class));
     }
 }

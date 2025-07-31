@@ -64,6 +64,9 @@ public class GoogleTokenVerifierServiceTest {
 
         //Given
         String invalidToken = "invalid-token";
+        GoogleIdToken.Payload payload = mock(GoogleIdToken.Payload.class);
+        GoogleIdToken idToken = mock(GoogleIdToken.class);
+        when(idToken.getPayload()).thenReturn(payload);
 
         try (MockedStatic<GoogleNetHttpTransport> transportMock = Mockito.mockStatic(GoogleNetHttpTransport.class)) {
             transportMock.when(GoogleNetHttpTransport::newTrustedTransport)

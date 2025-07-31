@@ -77,4 +77,14 @@ class UserRepositoryAdapterTest {
         assertTrue(exists);
         verify(jpaUserRepository).existsByEmail("gus@example.com");
     }
+
+    @Test
+    void shouldReturnEmptyOptionalIfUserDoesNotExist() {
+        when(jpaUserRepository.findByEmail("notfound@example.com")).thenReturn(Optional.empty());
+
+        Optional<User> result = adapter.findByEmail("notfound@example.com");
+
+        assertTrue(result.isEmpty());
+    }
+
 }

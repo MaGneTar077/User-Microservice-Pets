@@ -13,7 +13,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 
-public class GoogleAuthUseCaseimplTest {
+public class GoogleAuthUseCaseImplTest {
 
     private UserRepositoryPort userRepositoryPort;
     private GoogleAuthUseCase googleAuthUseCase;
@@ -38,8 +38,7 @@ public class GoogleAuthUseCaseimplTest {
 
         //Then
         assertThat(result).isEqualTo(existingUser);
-        verify(userRepositoryPort, never()).save(any());
-
+        verify(userRepositoryPort, never()).save(any(User.class));
     }
 
     @Test

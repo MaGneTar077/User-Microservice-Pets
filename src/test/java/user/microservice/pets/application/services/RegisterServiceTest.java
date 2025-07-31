@@ -59,4 +59,16 @@ class RegisterServiceTest {
 
         verify(registerUserUseCase).register(any(User.class));
     }
+
+    @Test
+    void shouldThrowExceptionWhenEmailExists() {
+        when(registerUserUseCase.register(any(User.class)))
+                .thenThrow(new IllegalArgumentException("Email already exists"));
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                () -> registerService.register(request));
+
+        assertEquals("Email already exists", exception.getMessage());
+    }
+
 }
