@@ -8,6 +8,7 @@ import user.microservice.pets.infrastructure.entity.UserEntity;
 import user.microservice.pets.infrastructure.repositories.JpaUserRepository;
 
 import java.util.Optional;
+import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor
@@ -18,6 +19,12 @@ public class UserRepositoryAdapter implements UserRepositoryPort {
     @Override
     public Optional<User> findByEmail(String email){
         return jpaUserRepository.findByEmail(email)
+                .map(this::toDomainModel);
+    }
+
+    @Override
+    public Optional<User> findById(UUID id) {
+        return jpaUserRepository.findById(id)
                 .map(this::toDomainModel);
     }
 
