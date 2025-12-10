@@ -13,10 +13,13 @@ import java.util.Map;
 @Component
 public class JwtUtil {
 
-    @Value("${jwt.secret}")
-    private String secret;
+    private final String secret;
 
     private final long EXPIRATION = 1000 * 60 * 60; // 1 hora
+
+    public JwtUtil(@Value("${jwt.secret}") String secret) {
+        this.secret = secret;
+    }
 
     private Key getSigningKey() {
         return Keys.hmacShaKeyFor(secret.getBytes());

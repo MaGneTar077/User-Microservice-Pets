@@ -34,6 +34,11 @@ public class UserRepositoryAdapter implements UserRepositoryPort {
     }
 
     @Override
+    public boolean existsByUsername(String username) {
+        return jpaUserRepository.existsByUsername(username);
+    }
+
+    @Override
     public User save(User user){
         UserEntity entity = toEntity(user);
         return toDomainModel(jpaUserRepository.save(entity));
