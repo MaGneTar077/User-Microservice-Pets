@@ -1,5 +1,7 @@
 package user.microservice.pets.application.services;
 
+import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import user.microservice.pets.domain.model.PasswordResetToken;
 import user.microservice.pets.domain.model.User;
@@ -13,6 +15,7 @@ import java.time.LocalDateTime;
 import java.util.Optional;
 
 @Service
+@RequiredArgsConstructor
 public class ResetPasswordService implements ResetPasswordUseCase {
 
     private final UserRepositoryPort userRepository;
@@ -20,27 +23,19 @@ public class ResetPasswordService implements ResetPasswordUseCase {
     private final EmailSenderPort emailService;
     private final PasswordEncoder passwordEncoder;
 
-    public ResetPasswordService(UserRepositoryPort userRepository,
-                                PasswordResetTokenRepositoryPort tokenRepository,
-                                EmailSenderPort emailService,
-                                PasswordEncoder passwordEncoder) {
-        this.userRepository = userRepository;
-        this.tokenRepository = tokenRepository;
-        this.emailService = emailService;
-        this.passwordEncoder = passwordEncoder;
-    }
-
     @Override
+    @Transactional
     public void execute(String token, String newPassword) {
-        Optional<PasswordResetToken> tokenOpt = tokenRepository.findByToken(token);
-        if (tokenOpt.isEmpty()) {
-            throw new IllegalArgumentException("Token inválido");
-        }
+        PasswordResetToken resetToken = tokenRepository.findByToken(token)
+                .orElseThrow(() -> new IllegalArgumentException("Token inválido o ya usado"));
 
-        PasswordResetToken resetToken = tokenOpt.get();
         if (resetToken.getExpiresAt().isBefore(LocalDateTime.now())) {
             tokenRepository.deleteByToken(token);
             throw new IllegalArgumentException("Token expirado");
+        }
+
+        if (resetToken.isUsed()) {
+            throw new IllegalArgumentException("Token ya utilizado");
         }
 
         User user = userRepository.findByEmail(resetToken.getEmail())
@@ -51,7 +46,8 @@ public class ResetPasswordService implements ResetPasswordUseCase {
 
         tokenRepository.deleteByToken(token);
 
-        emailService.sendEmail(user.getEmail(), "Contraseña cambiada con éxito",
+        emailService.sendEmail(user.getEmail(),
+                "Contraseña cambiada con éxito",
                 "Tu contraseña fue actualizada correctamente.");
     }
 }

@@ -1,10 +1,19 @@
 package user.microservice.pets.infrastructure.entity;
 
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "password_reset_tokens")
+@Table(name = "password_reset_tokens", indexes = {
+        @Index(name = "idx_token", columnList = "token"),
+        @Index(name = "idx_email", columnList = "email"),
+        @Index(name = "idx_expires_at", columnList = "expiresAt")
+})
+@Getter
+@Setter
 public class PasswordResetTokenEntity {
 
     @Id
@@ -20,16 +29,9 @@ public class PasswordResetTokenEntity {
     @Column(nullable = false)
     private LocalDateTime expiresAt;
 
-    // Getters y setters
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt = LocalDateTime.now();
 
-    public String getEmail() { return email; }
-    public void setEmail(String email) { this.email = email; }
-
-    public String getToken() { return token; }
-    public void setToken(String token) { this.token = token; }
-
-    public LocalDateTime getExpiresAt() { return expiresAt; }
-    public void setExpiresAt(LocalDateTime expiresAt) { this.expiresAt = expiresAt; }
+    @Column(nullable = false)
+    private Boolean used = false;
 }

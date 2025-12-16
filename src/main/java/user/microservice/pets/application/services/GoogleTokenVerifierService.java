@@ -13,7 +13,7 @@ import java.util.Collections;
 @Service
 public class GoogleTokenVerifierService {
 
-    private static final String CLIENT_ID = "197571675834-sf7vdbok5ubm1qk63gfgp31mvn8srhen.apps.googleusercontent.com";
+    private static final String CLIENT_ID = "GOOGLE_CLIENT_ID_HERE";
     private static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
 
     public GoogleIdToken.Payload verify(String idTokenString) {

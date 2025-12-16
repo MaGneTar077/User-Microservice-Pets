@@ -7,5 +7,6 @@ public interface PasswordResetTokenRepositoryPort {
     PasswordResetToken save(PasswordResetToken token);
     Optional<PasswordResetToken> findByToken(String token);
     void deleteByToken(String token);
+    void deleteByEmail(String email);
     void deleteAllExpiredTokens();
 }

@@ -1,6 +1,7 @@
 package user.microservice.pets.application.services;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import user.microservice.pets.domain.model.PasswordResetToken;
 import user.microservice.pets.domain.model.User;
 import user.microservice.pets.domain.ports.in.RequestPasswordResetUseCase;
@@ -14,6 +15,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Service
+@Transactional
 public class RequestPasswordResetService implements RequestPasswordResetUseCase{
 
     private final UserRepositoryPort userRepository;
@@ -32,8 +34,10 @@ public class RequestPasswordResetService implements RequestPasswordResetUseCase{
     public void execute(String email) {
         Optional<User> userOpt = userRepository.findByEmail(email);
         if (userOpt.isEmpty()) {
-            return; // No filtramos si el usuario no existe por seguridad
+            return;
         }
+
+        tokenRepository.deleteByEmail(email);
 
         String token = UUID.randomUUID().toString();
         LocalDateTime expiresAt = LocalDateTime.now().plusMinutes(15);
