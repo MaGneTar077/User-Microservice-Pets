@@ -2,7 +2,9 @@ package user.microservice.pets.infrastructure.controllers;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import user.microservice.pets.application.services.LogoutService;
 import user.microservice.pets.domain.enums.AuthProvider;
 import user.microservice.pets.domain.model.User;
 import user.microservice.pets.domain.ports.in.GoogleAuthUseCase;
@@ -16,11 +18,12 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 
-public class AuthControllerTest {
+class AuthControllerTest {
 
     private GoogleAuthUseCase googleAuthUseCase;
     private JwtUtil jwtUtil;
     private LocalAuthUseCase localAuthUseCase;
+    private LogoutService logoutService;
     private AuthController authController;
 
     @BeforeEach
@@ -28,9 +31,19 @@ public class AuthControllerTest {
         googleAuthUseCase = mock(GoogleAuthUseCase.class);
         jwtUtil = mock(JwtUtil.class);
         localAuthUseCase = mock(LocalAuthUseCase.class);
+        logoutService = mock(LogoutService.class);
 
-        authController = new AuthController(googleAuthUseCase, jwtUtil, localAuthUseCase);
+        authController = new AuthController(
+                googleAuthUseCase,
+                jwtUtil,
+                localAuthUseCase,
+                logoutService
+        );
     }
+
+    // =========================
+    // GOOGLE LOGIN
+    // =========================
 
     @Test
     void shouldReturnTokenWhenGoogleTokenIsValid() {
@@ -50,10 +63,11 @@ public class AuthControllerTest {
                 .thenReturn("jwt-token");
 
         // When
-        ResponseEntity<Map<String, String>> response = authController.loginWithGoogle(idToken);
+        ResponseEntity<Map<String, String>> response =
+                authController.loginWithGoogle(idToken);
 
         // Then
-        assertThat(response.getStatusCode().value()).isEqualTo(200);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).containsKey("token");
         assertThat(response.getBody().get("token")).isEqualTo("jwt-token");
 
@@ -61,4 +75,46 @@ public class AuthControllerTest {
         verify(jwtUtil).generateToken(eq(expectedUser.getEmail()), anyMap());
     }
 
+    @Test
+    void shouldLogoutSuccessfullyWhenAuthorizationHeaderIsPresent() {
+        // Given
+        String token = "fake-jwt-token";
+        String authHeader = "Bearer " + token;
+
+        // When
+        ResponseEntity<String> response = authController.logout(authHeader);
+
+        // Then
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isEqualTo("Logout successfully");
+
+        verify(logoutService).logout(token);
+    }
+
+    @Test
+    void shouldLogoutSuccessfullyWhenAuthorizationHeaderIsNull() {
+        // When
+        ResponseEntity<String> response = authController.logout(null);
+
+        // Then
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isEqualTo("Logout successfully");
+
+        verifyNoInteractions(logoutService);
+    }
+
+    @Test
+    void shouldNotLogoutWhenAuthorizationHeaderIsInvalid() {
+        // Given
+        String invalidHeader = "InvalidHeader token";
+
+        // When
+        ResponseEntity<String> response = authController.logout(invalidHeader);
+
+        // Then
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isEqualTo("Logout successfully");
+
+        verifyNoInteractions(logoutService);
+    }
 }
