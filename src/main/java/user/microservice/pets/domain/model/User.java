@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import user.microservice.pets.domain.enums.AuthProvider;
@@ -11,6 +12,7 @@ import user.microservice.pets.domain.enums.AuthProvider;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
+@Builder
 public class User {
 
     private UUID id;
