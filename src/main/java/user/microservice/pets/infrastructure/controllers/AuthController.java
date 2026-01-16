@@ -1,6 +1,8 @@
 package user.microservice.pets.infrastructure.controllers;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import user.microservice.pets.application.dto.LoginRequest;
@@ -12,6 +14,7 @@ import user.microservice.pets.infrastructure.security.JwtUtil;
 
 import java.util.Map;
 
+@Slf4j
 @RestController
 @RequestMapping("/auth")
 @RequiredArgsConstructor
@@ -36,7 +39,7 @@ public class AuthController {
     }
 
     @PostMapping("/local")
-    public ResponseEntity<Map<String, String>> loginLocal(@RequestBody LoginRequest request) {
+    public ResponseEntity<Map<String, String>> loginLocal(@Valid @RequestBody LoginRequest request) {
         User user = localAuthUseCase.login(request.getEmail(), request.getPassword());
 
         String jwt = jwtUtil.generateToken(user.getEmail(), Map.of(
@@ -44,6 +47,7 @@ public class AuthController {
                 "provider", user.getAuthProvider().name()
         ));
 
+        log.info("JWT token generated for user: {}", user.getEmail());
         return ResponseEntity.ok(Map.of("token", jwt));
     }
 
