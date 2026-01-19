@@ -3,10 +3,12 @@ package user.microservice.pets.infrastructure.controllers;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import user.microservice.pets.application.dto.LoginRequest;
 import user.microservice.pets.application.services.LogoutService;
+import user.microservice.pets.domain.exceptions.InvalidTokenException;
 import user.microservice.pets.domain.model.User;
 import user.microservice.pets.domain.ports.in.GoogleAuthUseCase;
 import user.microservice.pets.domain.ports.in.LocalAuthUseCase;
@@ -24,7 +26,6 @@ public class AuthController {
     private final JwtUtil jwtUtil;
     private final LocalAuthUseCase localAuthUseCase;
     private final LogoutService logoutService;
-
 
     @PostMapping("/google")
     public ResponseEntity<Map<String, String>> loginWithGoogle(@RequestBody String idToken) {
@@ -52,11 +53,33 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<String> logout(@RequestHeader(value= "Authorization", required = false) String authHeader){
-        if (authHeader!= null && authHeader.startsWith("Bearer ")){
-            String token= authHeader.substring(7);
-            logoutService.logout(token);
+    public ResponseEntity<Map<String, String>> logout(
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+
+        if (authHeader == null || authHeader.trim().isEmpty()) {
+            log.warn("Logout attempt without Authorization header");
+            throw new InvalidTokenException("Authorization header is required");
         }
-        return ResponseEntity.ok("Logout successfully");
+
+        if (!authHeader.startsWith("Bearer ")) {
+            log.warn("Logout attempt with invalid Authorization header format");
+            throw new InvalidTokenException("Invalid Authorization header format. Must start with 'Bearer '");
+        }
+
+        String token = authHeader.substring(7).trim();
+
+        if (token.isEmpty()) {
+            log.warn("Logout attempt with empty token");
+            throw new InvalidTokenException("Token cannot be empty");
+        }
+
+        logoutService.logout(token);
+
+        return ResponseEntity.ok(Map.of("message", "Logout successful"));
+    }
+
+    @GetMapping("/blacklist/size")
+    public ResponseEntity<Map<String, Integer>> getBlacklistSize() {
+        return ResponseEntity.ok(Map.of("size", logoutService.getBlacklistSize()));
     }
 }

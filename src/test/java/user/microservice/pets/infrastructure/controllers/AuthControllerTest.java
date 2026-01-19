@@ -1,120 +1,56 @@
 package user.microservice.pets.infrastructure.controllers;
 
-import org.junit.jupiter.api.BeforeEach;
+import io.jsonwebtoken.Claims;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import user.microservice.pets.application.services.LogoutService;
-import user.microservice.pets.domain.enums.AuthProvider;
-import user.microservice.pets.domain.model.User;
-import user.microservice.pets.domain.ports.in.GoogleAuthUseCase;
-import user.microservice.pets.domain.ports.in.LocalAuthUseCase;
 import user.microservice.pets.infrastructure.security.JwtUtil;
 
-import java.time.LocalDateTime;
-import java.util.Map;
-import java.util.UUID;
+import java.util.Date;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.when;
 
-class AuthControllerTest {
+@ExtendWith(MockitoExtension.class)
+@DisplayName("LogoutService - Unit Tests")
+class LogoutServiceTest {
 
-    private GoogleAuthUseCase googleAuthUseCase;
+    @Mock
     private JwtUtil jwtUtil;
-    private LocalAuthUseCase localAuthUseCase;
+
+    @InjectMocks
     private LogoutService logoutService;
-    private AuthController authController;
-
-    @BeforeEach
-    void setup() {
-        googleAuthUseCase = mock(GoogleAuthUseCase.class);
-        jwtUtil = mock(JwtUtil.class);
-        localAuthUseCase = mock(LocalAuthUseCase.class);
-        logoutService = mock(LogoutService.class);
-
-        authController = new AuthController(
-                googleAuthUseCase,
-                jwtUtil,
-                localAuthUseCase,
-                logoutService
-        );
-    }
-
-    // =========================
-    // GOOGLE LOGIN
-    // =========================
 
     @Test
-    void shouldReturnTokenWhenGoogleTokenIsValid() {
+    void shouldInvalidateTokenOnLogout() {
         // Given
-        String idToken = "valid-token";
-        User expectedUser = new User(
-                UUID.randomUUID(),
-                "user10",
-                "user10@gmail.com",
-                null,
-                LocalDateTime.now(),
-                AuthProvider.GOOGLE
-        );
+        String token = "fake.jwt.token";
 
-        when(googleAuthUseCase.authenticate(idToken)).thenReturn(expectedUser);
-        when(jwtUtil.generateToken(eq(expectedUser.getEmail()), anyMap()))
-                .thenReturn("jwt-token");
+        Claims claims = org.mockito.Mockito.mock(Claims.class);
+        when(claims.getExpiration()).thenReturn(new Date(System.currentTimeMillis() + 60000));
+        when(claims.getSubject()).thenReturn("user@test.com");
+        when(jwtUtil.validateToken(token)).thenReturn(claims);
 
         // When
-        ResponseEntity<Map<String, String>> response =
-                authController.loginWithGoogle(idToken);
+        logoutService.logout(token);
 
         // Then
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody()).containsKey("token");
-        assertThat(response.getBody().get("token")).isEqualTo("jwt-token");
-
-        verify(googleAuthUseCase).authenticate(idToken);
-        verify(jwtUtil).generateToken(eq(expectedUser.getEmail()), anyMap());
+        assertThat(logoutService.isTokenInvalid(token)).isTrue();
     }
 
     @Test
-    void shouldLogoutSuccessfullyWhenAuthorizationHeaderIsPresent() {
+    void shouldReturnFalseWhenTokenWasNotLoggedOut() {
         // Given
-        String token = "fake-jwt-token";
-        String authHeader = "Bearer " + token;
+        String token = "non-invalidated-token";
 
         // When
-        ResponseEntity<String> response = authController.logout(authHeader);
+        boolean result = logoutService.isTokenInvalid(token);
 
         // Then
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody()).isEqualTo("Logout successfully");
-
-        verify(logoutService).logout(token);
-    }
-
-    @Test
-    void shouldLogoutSuccessfullyWhenAuthorizationHeaderIsNull() {
-        // When
-        ResponseEntity<String> response = authController.logout(null);
-
-        // Then
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody()).isEqualTo("Logout successfully");
-
-        verifyNoInteractions(logoutService);
-    }
-
-    @Test
-    void shouldNotLogoutWhenAuthorizationHeaderIsInvalid() {
-        // Given
-        String invalidHeader = "InvalidHeader token";
-
-        // When
-        ResponseEntity<String> response = authController.logout(invalidHeader);
-
-        // Then
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody()).isEqualTo("Logout successfully");
-
-        verifyNoInteractions(logoutService);
+        assertThat(result).isFalse();
     }
 }

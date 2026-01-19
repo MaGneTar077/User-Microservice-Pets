@@ -15,6 +15,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import user.microservice.pets.application.services.LogoutService;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -25,6 +26,7 @@ import java.util.Collections;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
+    private final LogoutService logoutService;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -38,6 +40,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String token = authHeader.substring(7);
 
             try {
+                if (logoutService.isTokenInvalid(token)) {
+                    log.warn("Attempt to use invalidated token");
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    response.setContentType("application/json");
+                    response.getWriter().write("{\"error\": \"Token has been invalidated\"}");
+                    return;
+                }
+
                 Claims claims = jwtUtil.validateToken(token);
                 String email = claims.getSubject();
 
@@ -52,24 +62,30 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             } catch (ExpiredJwtException e) {
                 log.warn("Token expirado: {}", e.getMessage());
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.setContentType("application/json");
                 response.getWriter().write("{\"error\": \"Token expired\"}");
                 return;
             } catch (SignatureException e) {
                 log.warn("Firma JWT inválida: {}", e.getMessage());
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.setContentType("application/json");
                 response.getWriter().write("{\"error\": \"Invalid token signature\"}");
                 return;
             } catch (MalformedJwtException e) {
                 log.warn("Token JWT malformado: {}", e.getMessage());
                 response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                response.setContentType("application/json");
                 response.getWriter().write("{\"error\": \"Malformed token\"}");
                 return;
             } catch (Exception e) {
                 log.error("Error validando JWT: {}", e.getMessage());
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.setContentType("application/json");
+                response.getWriter().write("{\"error\": \"Invalid token\"}");
+                return;
             }
         }
 
         filterChain.doFilter(request, response);
     }
-
 }
