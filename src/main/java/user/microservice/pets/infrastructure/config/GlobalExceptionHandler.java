@@ -7,10 +7,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-import user.microservice.pets.domain.exceptions.InvalidCredentialsException;
-import user.microservice.pets.domain.exceptions.InvalidTokenException;
-import user.microservice.pets.domain.exceptions.InvalidUserDataException;
-import user.microservice.pets.domain.exceptions.UserAlreadyExistsException;
+import user.microservice.pets.domain.exceptions.*;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -62,6 +59,28 @@ public class GlobalExceptionHandler {
                 LocalDateTime.now()
         );
         return new ResponseEntity<>(error, HttpStatus.UNAUTHORIZED);
+    }
+
+    @ExceptionHandler(UserNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleUserNotFound(UserNotFoundException ex) {
+        log.warn("User not found: {}", ex.getMessage());
+        ErrorResponse error = new ErrorResponse(
+                HttpStatus.NOT_FOUND.value(),
+                ex.getMessage(),
+                LocalDateTime.now()
+        );
+        return new ResponseEntity<>(error, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(UnauthorizedAccessException.class)
+    public ResponseEntity<ErrorResponse> handleUnauthorizedAccess(UnauthorizedAccessException ex) {
+        log.warn("Unauthorized access attempt: {}", ex.getMessage());
+        ErrorResponse error = new ErrorResponse(
+                HttpStatus.FORBIDDEN.value(),
+                ex.getMessage(),
+                LocalDateTime.now()
+        );
+        return new ResponseEntity<>(error, HttpStatus.FORBIDDEN);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
