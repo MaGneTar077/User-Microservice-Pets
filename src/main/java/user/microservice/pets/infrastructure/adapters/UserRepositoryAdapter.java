@@ -17,7 +17,7 @@ public class UserRepositoryAdapter implements UserRepositoryPort {
     private final JpaUserRepository jpaUserRepository;
 
     @Override
-    public Optional<User> findByEmail(String email){
+    public Optional<User> findByEmail(String email) {
         return jpaUserRepository.findByEmail(email)
                 .map(this::toDomainModel);
     }
@@ -29,7 +29,7 @@ public class UserRepositoryAdapter implements UserRepositoryPort {
     }
 
     @Override
-    public boolean existsByEmail(String email){
+    public boolean existsByEmail(String email) {
         return jpaUserRepository.existsByEmail(email);
     }
 
@@ -39,21 +39,32 @@ public class UserRepositoryAdapter implements UserRepositoryPort {
     }
 
     @Override
-    public User save(User user){
+    public User save(User user) {
         UserEntity entity = toEntity(user);
         return toDomainModel(jpaUserRepository.save(entity));
     }
 
-    private User toDomainModel(UserEntity entity){
-        return new User(
-                entity.getId(),
-                entity.getUsername(),
-                entity.getEmail(),
-                entity.getPassword(),
-                entity.getCreatedAt(),
-                entity.getAuthProvider()
-        );
+    @Override
+    public User updateProfileImage(UUID userId, String imageUrl) {
+        UserEntity entity = jpaUserRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
 
+        entity.setProfileImageUrl(imageUrl);
+        UserEntity saved = jpaUserRepository.save(entity);
+
+        return toDomainModel(saved);
+    }
+
+    private User toDomainModel(UserEntity entity) {
+        return User.builder()
+                .id(entity.getId())
+                .username(entity.getUsername())
+                .email(entity.getEmail())
+                .password(entity.getPassword())
+                .profileImageUrl(entity.getProfileImageUrl())
+                .createdAt(entity.getCreatedAt())
+                .authProvider(entity.getAuthProvider())
+                .build();
     }
 
     private UserEntity toEntity(User domain) {
@@ -62,6 +73,7 @@ public class UserRepositoryAdapter implements UserRepositoryPort {
                 .username(domain.getUsername())
                 .email(domain.getEmail())
                 .password(domain.getPassword())
+                .profileImageUrl(domain.getProfileImageUrl())
                 .createdAt(domain.getCreatedAt())
                 .authProvider(domain.getAuthProvider())
                 .build();

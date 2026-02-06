@@ -11,4 +11,5 @@ public interface UserRepositoryPort {
     boolean existsByEmail(String email);
     boolean existsByUsername(String username);
     User save(User user);
+    User updateProfileImage(UUID userId, String imageUrl);
 }

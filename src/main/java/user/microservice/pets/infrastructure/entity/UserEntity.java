@@ -24,6 +24,9 @@ public class UserEntity {
     private String email;
     private String password;
 
+    @Column(name = "profile_image_url")
+    private String profileImageUrl;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "auth_provider", nullable = false)
     private AuthProvider authProvider;
