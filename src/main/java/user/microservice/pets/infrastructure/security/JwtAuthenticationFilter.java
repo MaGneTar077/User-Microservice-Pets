@@ -29,10 +29,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final LogoutService logoutService;
 
     @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String path = request.getRequestURI();
+        return path.startsWith("/auth/") ||
+                path.startsWith("/user/register") ||
+                path.startsWith("/api/") ||
+                path.equals("/error");
+    }
+
+    @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain)
             throws ServletException, IOException {
+
+        log.debug("JWT Filter processing: {} {}", request.getMethod(), request.getRequestURI());
 
         String authHeader = request.getHeader("Authorization");
 
@@ -42,9 +53,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             try {
                 if (logoutService.isTokenInvalid(token)) {
                     log.warn("Attempt to use invalidated token");
-                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                    response.setContentType("application/json");
-                    response.getWriter().write("{\"error\": \"Token has been invalidated\"}");
+                    sendErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED, "Token has been invalidated");
                     return;
                 }
 
@@ -61,31 +70,30 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 }
             } catch (ExpiredJwtException e) {
                 log.warn("Token expirado: {}", e.getMessage());
-                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                response.setContentType("application/json");
-                response.getWriter().write("{\"error\": \"Token expired\"}");
+                sendErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED, "Token expired");
                 return;
             } catch (SignatureException e) {
                 log.warn("Firma JWT inválida: {}", e.getMessage());
-                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                response.setContentType("application/json");
-                response.getWriter().write("{\"error\": \"Invalid token signature\"}");
+                sendErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED, "Invalid token signature");
                 return;
             } catch (MalformedJwtException e) {
                 log.warn("Token JWT malformado: {}", e.getMessage());
-                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                response.setContentType("application/json");
-                response.getWriter().write("{\"error\": \"Malformed token\"}");
+                sendErrorResponse(response, HttpServletResponse.SC_BAD_REQUEST, "Malformed token");
                 return;
             } catch (Exception e) {
                 log.error("Error validando JWT: {}", e.getMessage());
-                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                response.setContentType("application/json");
-                response.getWriter().write("{\"error\": \"Invalid token\"}");
+                sendErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED, "Invalid token");
                 return;
             }
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private void sendErrorResponse(HttpServletResponse response, int status, String message) throws IOException {
+        response.setStatus(status);
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+        response.getWriter().write("{\"error\": \"" + message + "\"}");
     }
 }
