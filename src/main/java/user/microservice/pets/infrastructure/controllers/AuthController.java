@@ -27,11 +27,13 @@ public class AuthController {
     private final LocalAuthUseCase localAuthUseCase;
     private final LogoutService logoutService;
 
+    @CrossOrigin(origins = "http://localhost:8100")
     @PostMapping("/google")
     public ResponseEntity<Map<String, String>> loginWithGoogle(@RequestBody String idToken) {
         User user = googleAuthUseCase.authenticate(idToken);
 
         String jwt = jwtUtil.generateToken(user.getEmail(), Map.of(
+                "id", user.getId().toString(),
                 "username", user.getUsername(),
                 "provider", user.getAuthProvider().name()
         ));
@@ -44,6 +46,7 @@ public class AuthController {
         User user = localAuthUseCase.login(request.getEmail(), request.getPassword());
 
         String jwt = jwtUtil.generateToken(user.getEmail(), Map.of(
+                "id", user.getId().toString(),
                 "username", user.getUsername(),
                 "provider", user.getAuthProvider().name()
         ));
