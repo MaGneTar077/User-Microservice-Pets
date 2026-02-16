@@ -24,7 +24,7 @@ public class UserEntity {
     private String email;
     private String password;
 
-    @Column(name = "profile_image_url")
+    @Column(name = "profile_image_url",  length = 2000)
     private String profileImageUrl;
 
     @Enumerated(EnumType.STRING)
