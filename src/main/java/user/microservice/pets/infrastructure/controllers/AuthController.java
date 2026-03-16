@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import user.microservice.pets.application.dto.GoogleTokenRequest;
 import user.microservice.pets.application.dto.LoginRequest;
 import user.microservice.pets.application.services.LogoutService;
 import user.microservice.pets.domain.exceptions.InvalidTokenException;
@@ -29,8 +30,12 @@ public class AuthController {
 
     @CrossOrigin(origins = "http://localhost:8100")
     @PostMapping("/google")
-    public ResponseEntity<Map<String, String>> loginWithGoogle(@RequestBody String idToken) {
-        User user = googleAuthUseCase.authenticate(idToken);
+    public ResponseEntity<Map<String, String>> loginWithGoogle(
+            @RequestBody GoogleTokenRequest request) {
+
+        String cleanToken = request.idToken().trim();
+
+        User user = googleAuthUseCase.authenticate(cleanToken);
 
         String jwt = jwtUtil.generateToken(user.getEmail(), Map.of(
                 "id", user.getId().toString(),
