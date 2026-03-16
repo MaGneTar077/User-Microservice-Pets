@@ -5,6 +5,7 @@ import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.jackson2.JacksonFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.security.GeneralSecurityException;
@@ -13,7 +14,8 @@ import java.util.Collections;
 @Service
 public class GoogleTokenVerifierService {
 
-    private static final String CLIENT_ID = "GOOGLE_CLIENT_ID";
+    @Value("${spring.security.oauth2.client.registration.google.client-id}")
+    private String clientId;
     private static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
 
     public GoogleIdToken.Payload verify(String idTokenString) {
@@ -22,7 +24,7 @@ public class GoogleTokenVerifierService {
                     GoogleNetHttpTransport.newTrustedTransport(),
                     JSON_FACTORY
             )
-                    .setAudience(Collections.singletonList(CLIENT_ID))
+                    .setAudience(Collections.singletonList(clientId))
                     .build();
 
             GoogleIdToken idToken = verifier.verify(idTokenString);
