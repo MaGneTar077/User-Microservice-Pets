@@ -1,6 +1,6 @@
 spring:
   application:
-    name: pets
+    name: user-service
 
   datasource:
     url: ${DB_URL}
@@ -44,13 +44,22 @@ spring:
             authorization-grant-type: authorization_code
             redirect-uri: ${GOOGLE_REDIRECT_URI}
             client-name: Google
-
         provider:
           google:
             authorization-uri: https://accounts.google.com/o/oauth2/v2/auth
             token-uri: https://oauth2.googleapis.com/token
             user-info-uri: https://www.googleapis.com/oauth2/v3/userinfo
             user-name-attribute: sub
+
+  config:
+    import: optional:file:.env[.properties]
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    prefer-ip-address: true
 
 server:
   port: ${SERVER_PORT}
