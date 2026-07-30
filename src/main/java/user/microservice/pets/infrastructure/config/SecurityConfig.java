@@ -31,6 +31,7 @@ public class SecurityConfig {
                                 "/auth/**",
                                 "/user/register",
                                 "/api/**",
+                                "/actuator/**",
                                 "/error"
                         ).permitAll()
                         .anyRequest().authenticated()

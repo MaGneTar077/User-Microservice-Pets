@@ -75,9 +75,19 @@ supabase:
   key: ${SUPABASE_KEY}
 
 management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, prometheus, metrics
+  endpoint:
+    health:
+      show-details: always
   tracing:
     sampling:
       probability: 1.0
   zipkin:
     tracing:
       endpoint: http://localhost:9411/api/v2/spans
+  metrics:
+    tags:
+      application: ${spring.application.name}
