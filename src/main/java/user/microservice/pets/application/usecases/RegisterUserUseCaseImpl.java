@@ -23,9 +23,6 @@ public class RegisterUserUseCaseImpl implements RegisterUserUseCase {
     private static final Pattern EMAIL_PATTERN =
             Pattern.compile("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
 
-    private static final Pattern PASSWORD_PATTERN =
-            Pattern.compile("^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=!])(?=\\S+$).{8,}$");
-
     @Override
     public User register(User user) {
         validateUserData(user);
@@ -60,11 +57,8 @@ public class RegisterUserUseCaseImpl implements RegisterUserUseCase {
             throw new InvalidUserDataException("Invalid email format");
         }
 
-        if (!PASSWORD_PATTERN.matcher(user.getPassword()).matches()) {
-            throw new InvalidUserDataException(
-                    "Password must be at least 8 characters long and contain at least one uppercase letter, " +
-                            "one lowercase letter, one digit, and one special character"
-            );
+        if (user.getPassword().length() < 6) {
+            throw new InvalidUserDataException("Password must be at least 6 characters long");
         }
 
         if (!user.getUsername().matches("^[a-zA-Z0-9_]+$")) {
