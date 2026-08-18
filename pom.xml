@@ -22,11 +22,14 @@
 		<java.version>17</java.version>
 		<spring-security.version>6.5.11</spring-security.version>
 		<spring-data-commons.version>3.5.12</spring-data-commons.version>
+		<spring-framework.version>6.2.19</spring-framework.version>
 		<tomcat.version>10.1.56</tomcat.version>
 		<bouncycastle.version>1.85</bouncycastle.version>
-		<spring-framework.version>6.2.19</spring-framework.version>
 		<jackson-bom.version>2.21.5</jackson-bom.version>
 		<postgresql.version>42.7.12</postgresql.version>
+		<logback.version>1.5.36</logback.version>
+		<log4j2.version>2.25.2</log4j2.version>
+		<commons-lang3.version>3.18.0</commons-lang3.version>
 	</properties>
 
 	<dependencies>
@@ -49,6 +52,16 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-web</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-mail</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-actuator</artifactId>
 		</dependency>
 
 		<dependency>
@@ -113,19 +126,9 @@
 		</dependency>
 
 		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-mail</artifactId>
-		</dependency>
-
-		<dependency>
 			<groupId>me.paulschwarz</groupId>
 			<artifactId>spring-dotenv</artifactId>
 			<version>4.0.0</version>
-		</dependency>
-
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-actuator</artifactId>
 		</dependency>
 
 		<dependency>
@@ -184,6 +187,12 @@
 				<groupId>org.springframework.data</groupId>
 				<artifactId>spring-data-commons</artifactId>
 				<version>${spring-data-commons.version}</version>
+			</dependency>
+
+			<dependency>
+				<groupId>org.apache.commons</groupId>
+				<artifactId>commons-lang3</artifactId>
+				<version>${commons-lang3.version}</version>
 			</dependency>
 
 		</dependencies>

@@ -3,25 +3,31 @@ FROM maven:3.9-eclipse-temurin-17-alpine AS build
 
 WORKDIR /app
 
-# Copiar archivos de configuración de Maven
+# Copiar configuración de Maven
 COPY pom.xml .
 
-# Descargar dependencias (cacheado)
+# Descargar dependencias
 RUN mvn dependency:go-offline -B
 
 # Copiar código fuente
 COPY src ./src
 
-# Compilar y empaquetar SIN compilar ni ejecutar tests
+# Compilar y empaquetar sin ejecutar tests
 RUN mvn clean package -Dmaven.test.skip=true
 
+
 # Etapa 2: Runtime
-FROM eclipse-temurin:17-jre-alpine
+FROM eclipse-temurin:17-jre-alpine-3.23
 
 WORKDIR /app
 
+# Actualizar paquetes del sistema Alpine
+RUN apk update && \
+    apk upgrade --no-cache
+
 # Crear usuario no-root
-RUN addgroup -S spring && adduser -S spring -G spring
+RUN addgroup -S spring && \
+    adduser -S spring -G spring
 
 # Copiar JAR
 COPY --from=build /app/target/*.jar app.jar
@@ -29,10 +35,10 @@ COPY --from=build /app/target/*.jar app.jar
 # Cambiar a usuario no-root
 USER spring:spring
 
-# Exponer puerto
+# Puerto de la aplicación
 EXPOSE 8080
 
-# Configurar JVM
+# Configuración JVM
 ENV JAVA_OPTS="-Xmx512m -Xms256m"
 
 # Ejecutar aplicación
