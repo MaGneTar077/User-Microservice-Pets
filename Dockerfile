@@ -12,7 +12,7 @@ WORKDIR /app
 
 RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
 
-COPY --from=build /app/target/user-microservice-pets-*.jar app.jar
+COPY --from=build /app/target/pets-0.0.1-SNAPSHOT.jar app.jar
 
 RUN chown -R appuser:appgroup /app
 
