@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import user.microservice.pets.application.dto.RegisterRequest;
 import user.microservice.pets.application.dto.RegisterResponse;
 import user.microservice.pets.application.services.RegisterService;
+import user.microservice.pets.domain.ports.in.PublishAuthEventUseCase;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -18,12 +19,14 @@ import static org.mockito.Mockito.when;
 public class RegisterControllerTest {
 
     private RegisterService registerService;
+    private PublishAuthEventUseCase publishAuthEventUseCase;
     private RegisterController registerController;
 
     @BeforeEach
     void setup() {
         registerService = mock(RegisterService.class);
-        registerController = new RegisterController(registerService);
+        publishAuthEventUseCase = mock(PublishAuthEventUseCase.class);
+        registerController = new RegisterController(registerService, publishAuthEventUseCase);
     }
 
     @Test

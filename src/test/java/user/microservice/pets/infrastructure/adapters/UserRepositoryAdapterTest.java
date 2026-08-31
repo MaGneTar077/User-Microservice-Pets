@@ -34,7 +34,15 @@ class UserRepositoryAdapterTest {
         UUID id = UUID.randomUUID();
         LocalDateTime createdAt = LocalDateTime.now();
 
-        user = new User(id, "Gus", "gus@example.com", "secret", createdAt, AuthProvider.LOCAL);
+        user = User.builder()
+                .id(id)
+                .username("Gus")
+                .email("gus@example.com")
+                .password("secret")
+                .profileImageUrl(null)
+                .createdAt(createdAt)
+                .authProvider(AuthProvider.LOCAL)
+                .build();
 
         userEntity = UserEntity.builder()
                 .id(id)

@@ -3,6 +3,7 @@ package user.microservice.pets.application.usecases;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
+import user.microservice.pets.domain.exceptions.UserNotFoundException;
 import user.microservice.pets.domain.model.User;
 import user.microservice.pets.domain.ports.out.UserRepositoryPort;
 
@@ -27,7 +28,14 @@ public class GetProfileUseCaseImplTest {
     @Test
     void ShouldReturnUserWhenExists() {
         UUID userId = UUID.randomUUID();
-        User user = new User(userId, "luis", "luis@test.com", "pass123", LocalDateTime.now(), null);
+        User user = User.builder()
+                .id(userId)
+                .username("luis")
+                .email("luis@test.com")
+                .password("pass123")
+                .createdAt(LocalDateTime.now())
+                .authProvider(null)
+                .build();
 
         when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
 
@@ -44,9 +52,9 @@ public class GetProfileUseCaseImplTest {
 
         when(userRepositoryPort.findById(userId)).thenReturn(Optional.empty());
 
-        RuntimeException exception = assertThrows(RuntimeException.class, () -> getProfileUseCase.getProfile(userId));
+        UserNotFoundException exception = assertThrows(UserNotFoundException.class, () -> getProfileUseCase.getProfile(userId));
 
-        assertEquals("User not found with id: " + userId, exception.getMessage());
+        assertEquals("User not found", exception.getMessage());
         verify(userRepositoryPort, times(1)).findById(userId);
     }
 
