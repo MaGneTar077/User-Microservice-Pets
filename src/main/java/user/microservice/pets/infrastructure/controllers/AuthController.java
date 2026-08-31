@@ -1,11 +1,13 @@
 package user.microservice.pets.infrastructure.controllers;
 
+import io.jsonwebtoken.Claims;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import user.microservice.pets.application.dto.AuthEvent;
 import user.microservice.pets.application.dto.GoogleTokenRequest;
 import user.microservice.pets.application.dto.LoginRequest;
 import user.microservice.pets.application.services.LogoutService;
@@ -13,9 +15,12 @@ import user.microservice.pets.domain.exceptions.InvalidTokenException;
 import user.microservice.pets.domain.model.User;
 import user.microservice.pets.domain.ports.in.GoogleAuthUseCase;
 import user.microservice.pets.domain.ports.in.LocalAuthUseCase;
+import user.microservice.pets.domain.ports.in.PublishAuthEventUseCase;
 import user.microservice.pets.infrastructure.security.JwtUtil;
 
+import java.time.Instant;
 import java.util.Map;
+import java.util.UUID;
 
 @Slf4j
 @RestController
@@ -27,6 +32,7 @@ public class AuthController {
     private final JwtUtil jwtUtil;
     private final LocalAuthUseCase localAuthUseCase;
     private final LogoutService logoutService;
+    private final PublishAuthEventUseCase publishAuthEventUseCase;
 
     @CrossOrigin(origins = "http://localhost:8100")
     @PostMapping("/google")
@@ -43,6 +49,13 @@ public class AuthController {
                 "provider", user.getAuthProvider().name()
         ));
 
+        publishAuthEventUseCase.publish(AuthEvent.builder()
+                .userId(user.getId())
+                .email(user.getEmail())
+                .eventType("USER_LOGIN")
+                .occurredAt(Instant.now())
+                .build());
+
         return ResponseEntity.ok(Map.of("token", jwt));
     }
 
@@ -55,6 +68,13 @@ public class AuthController {
                 "username", user.getUsername(),
                 "provider", user.getAuthProvider().name()
         ));
+
+        publishAuthEventUseCase.publish(AuthEvent.builder()
+                .userId(user.getId())
+                .email(user.getEmail())
+                .eventType("USER_LOGIN")
+                .occurredAt(Instant.now())
+                .build());
 
         log.info("JWT token generated for user: {}", user.getEmail());
         return ResponseEntity.ok(Map.of("token", jwt));
@@ -81,7 +101,21 @@ public class AuthController {
             throw new InvalidTokenException("Token cannot be empty");
         }
 
+        Claims claims = jwtUtil.validateToken(token);
+
+        String email = claims.getSubject();
+        UUID userId = UUID.fromString(claims.get("id", String.class));
+
         logoutService.logout(token);
+
+        publishAuthEventUseCase.publish(AuthEvent.builder()
+                .userId(userId)
+                .email(email)
+                .eventType("USER_LOGOUT")
+                .occurredAt(Instant.now())
+                .build());
+
+        log.info("User logged out: {}", email);
 
         return ResponseEntity.ok(Map.of("message", "Logout successful"));
     }

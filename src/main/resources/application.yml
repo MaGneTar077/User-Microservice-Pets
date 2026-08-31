@@ -2,6 +2,12 @@ spring:
   application:
     name: user-service
 
+  cloud:
+    gcp:
+      project-id: ${GCP_PROJECT_ID}
+      pubsub:
+        enabled: true
+
   datasource:
     url: ${DB_URL}
     username: ${DB_USERNAME}
