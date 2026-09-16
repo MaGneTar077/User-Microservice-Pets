@@ -64,6 +64,7 @@ public class UserRepositoryAdapter implements UserRepositoryPort {
                 .profileImageUrl(entity.getProfileImageUrl())
                 .createdAt(entity.getCreatedAt())
                 .authProvider(entity.getAuthProvider())
+                .emailVerified(entity.isEmailVerified())
                 .build();
     }
 
@@ -76,6 +77,7 @@ public class UserRepositoryAdapter implements UserRepositoryPort {
                 .profileImageUrl(domain.getProfileImageUrl())
                 .createdAt(domain.getCreatedAt())
                 .authProvider(domain.getAuthProvider())
+                .emailVerified(domain.isEmailVerified())
                 .build();
     }
 }

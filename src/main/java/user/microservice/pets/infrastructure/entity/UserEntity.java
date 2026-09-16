@@ -27,6 +27,9 @@ public class UserEntity {
     @Column(name = "profile_image_url",  length = 2000)
     private String profileImageUrl;
 
+    @Column(name = "email_verified", nullable = false)
+    private boolean emailVerified;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "auth_provider", nullable = false)
     private AuthProvider authProvider;

@@ -1,13 +1,17 @@
 package user.microservice.pets.application.services;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.JwtException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import user.microservice.pets.domain.exceptions.InvalidTokenException;
 import user.microservice.pets.infrastructure.security.JwtUtil;
 
+import java.time.Duration;
 import java.util.Date;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -17,73 +21,54 @@ import java.util.concurrent.ConcurrentHashMap;
 @RequiredArgsConstructor
 public class LogoutService {
 
+    public static final String BLACKLIST_PREFIX = "jwt:blacklist:";
+
     private final JwtUtil jwtUtil;
+    private final StringRedisTemplate redisTemplate;
 
     private final Map<String, Date> invalidTokens = new ConcurrentHashMap<>();
 
-    public void logout(String token) {
-        if (token == null || token.trim().isEmpty()) {
+    public Claims logout(String token) {
+        if (token == null || token.isBlank()) {
             throw new InvalidTokenException("Token cannot be empty");
         }
-
         if (token.split("\\.").length != 3) {
             throw new InvalidTokenException("Invalid token format");
         }
 
+        Claims claims;
         try {
-            Claims claims = jwtUtil.validateToken(token);
-            Date expiration = claims.getExpiration();
-
-            if (expiration.before(new Date())) {
-                log.warn("Attempt to logout with already expired token");
-                throw new InvalidTokenException("Token is already expired");
-            }
-
-            if (isTokenInvalid(token)) {
-                log.warn("Attempt to logout with already invalidated token");
-                throw new InvalidTokenException("Token is already invalidated");
-            }
-
-            invalidTokens.put(token, expiration);
-            log.info("Token invalidated successfully for user: {}", claims.getSubject());
-
-        } catch (io.jsonwebtoken.ExpiredJwtException e) {
-            log.warn("Attempt to logout with expired token: {}", e.getMessage());
+            claims = jwtUtil.validateToken(token);
+        } catch (ExpiredJwtException e) {
+            log.warn("Attempt to logout with expired token");
             throw new InvalidTokenException("Token is expired");
-        } catch (io.jsonwebtoken.MalformedJwtException e) {
-            log.warn("Attempt to logout with malformed token: {}", e.getMessage());
-            throw new InvalidTokenException("Malformed token");
-        } catch (io.jsonwebtoken.security.SignatureException e) {
-            log.warn("Attempt to logout with invalid signature: {}", e.getMessage());
-            throw new InvalidTokenException("Invalid token signature");
-        } catch (Exception e) {
-            log.error("Error during logout: {}", e.getMessage());
+        } catch (JwtException | IllegalArgumentException e) {
+            log.warn("Attempt to logout with invalid token: {}", e.getMessage());
             throw new InvalidTokenException("Invalid token");
         }
+
+        long ttlMs = claims.getExpiration().getTime() - System.currentTimeMillis();
+        if (ttlMs <= 0) {
+            throw new InvalidTokenException("Token is already expired");
+        }
+
+        // setIfAbsent: solo lo guarda si no estaba ya invalidado
+        Boolean stored = redisTemplate.opsForValue()
+                .setIfAbsent(BLACKLIST_PREFIX + token, "1", Duration.ofMillis(ttlMs));
+
+        if (!Boolean.TRUE.equals(stored)) {
+            log.warn("Attempt to logout with already invalidated token");
+            throw new InvalidTokenException("Token is already invalidated");
+        }
+
+        log.info("Token invalidated successfully for user: {}", claims.getSubject());
+        return claims;
     }
 
     public boolean isTokenInvalid(String token) {
-        if (token == null || token.trim().isEmpty()) {
+        if (token == null || token.isBlank()) {
             return false;
         }
-        return invalidTokens.containsKey(token);
-    }
-
-    @Scheduled(fixedRate = 3600000) // cada 1 hora
-    public void cleanupExpiredTokens() {
-        Date now = new Date();
-        int initialSize = invalidTokens.size();
-
-        invalidTokens.entrySet().removeIf(entry -> entry.getValue().before(now));
-
-        int removedCount = initialSize - invalidTokens.size();
-        if (removedCount > 0) {
-            log.info("Cleaned up {} expired tokens from blacklist. Current size: {}",
-                    removedCount, invalidTokens.size());
-        }
-    }
-
-    public int getBlacklistSize() {
-        return invalidTokens.size();
+        return Boolean.TRUE.equals(redisTemplate.hasKey(BLACKLIST_PREFIX + token));
     }
 }

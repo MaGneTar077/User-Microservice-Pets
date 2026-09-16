@@ -1,6 +1,8 @@
 package user.microservice.pets.application.usecases;
 
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import user.microservice.pets.application.services.GoogleTokenVerifierService;
 import user.microservice.pets.domain.enums.AuthProvider;
@@ -9,9 +11,11 @@ import user.microservice.pets.domain.ports.in.GoogleAuthUseCase;
 import user.microservice.pets.domain.ports.out.UserRepositoryPort;
 
 import java.time.LocalDateTime;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class GoogleAuthUseCaseImpl implements GoogleAuthUseCase {
@@ -21,36 +25,51 @@ public class GoogleAuthUseCaseImpl implements GoogleAuthUseCase {
 
     @Override
     public User authenticate(String idToken) {
-        com.google.api.client.googleapis.auth.oauth2.GoogleIdToken.Payload payload =
-                googleTokenVerifierService.verify(idToken);
+        GoogleIdToken.Payload payload = googleTokenVerifierService.verify(idToken);
 
-        String email = payload.getEmail();
+        String email = payload.getEmail().trim().toLowerCase(Locale.ROOT);
         String name = (String) payload.get("name");
         String picture = (String) payload.get("picture");
 
-        Optional<User> existingUser = userRepositoryPort.findByEmail(email);
+        Optional<User> existing = userRepositoryPort.findByEmail(email);
 
-        return existingUser.orElseGet(() -> {
-            String username = (name != null && !name.isBlank())
-                    ? name.replaceAll("\\s+", "").toLowerCase()
-                    : email.split("@")[0];
+        if (existing.isPresent()) {
+            User user = existing.get();
 
-            String finalUsername = username;
-            int suffix = 1;
-            while (userRepositoryPort.existsByUsername(finalUsername)) {
-                finalUsername = username + suffix++;
+            if (!user.isEmailVerified()) {
+                log.warn("Unverified local account for {} claimed via Google. Removing local password.", email);
+                user.setPassword(null);
+                user.setAuthProvider(AuthProvider.GOOGLE);
+                user.setEmailVerified(true);
+                if (user.getProfileImageUrl() == null) {
+                    user.setProfileImageUrl(picture);
+                }
+                return userRepositoryPort.save(user);
             }
+            return user;
+        }
 
-            User newUser = User.builder()
-                    .id(UUID.randomUUID())
-                    .username(finalUsername)
-                    .email(email)
-                    .profileImageUrl(picture)
-                    .createdAt(LocalDateTime.now())
-                    .authProvider(AuthProvider.GOOGLE)
-                    .build();
+        String base = (name != null && !name.isBlank())
+                ? name.replaceAll("[^A-Za-z0-9_]", "").toLowerCase(Locale.ROOT)
+                : "";
+        if (base.length() < 3) {
+            base = email.split("@")[0].replaceAll("[^A-Za-z0-9_]", "").toLowerCase(Locale.ROOT);
+        }
 
-            return userRepositoryPort.save(newUser);
-        });
+        String username = base;
+        int suffix = 1;
+        while (userRepositoryPort.existsByUsername(username)) {
+            username = base + suffix++;
+        }
+
+        return userRepositoryPort.save(User.builder()
+                .id(UUID.randomUUID())
+                .username(username)
+                .email(email)
+                .profileImageUrl(picture)
+                .createdAt(LocalDateTime.now())
+                .authProvider(AuthProvider.GOOGLE)
+                .emailVerified(true)
+                .build());
     }
 }

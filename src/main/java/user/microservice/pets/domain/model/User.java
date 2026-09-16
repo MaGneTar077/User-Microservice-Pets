@@ -20,6 +20,7 @@ public class User {
     private String email;
     private String password;
     private String profileImageUrl;
+    private boolean emailVerified;
     private LocalDateTime createdAt;
     private AuthProvider authProvider;
 

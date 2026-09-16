@@ -182,4 +182,19 @@ public class GlobalExceptionHandler {
         );
         return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
     }
+
+    @ExceptionHandler(EmailNotVerifiedException.class)
+    public ResponseEntity<Map<String, Object>> handleEmailNotVerified(EmailNotVerifiedException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                "error", ex.getMessage(),
+                "code", "EMAIL_NOT_VERIFIED",
+                "status", 403));
+    }
+
+    @ExceptionHandler(InvalidVerificationCodeException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidCode(InvalidVerificationCodeException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
+                "error", ex.getMessage(),
+                "status", 400));
+    }
 }

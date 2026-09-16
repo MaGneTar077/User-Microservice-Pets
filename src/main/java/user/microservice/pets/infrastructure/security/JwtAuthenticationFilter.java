@@ -33,7 +33,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String path = request.getRequestURI();
         return path.startsWith("/auth/") ||
                 path.startsWith("/user/register") ||
-                path.startsWith("/api/") ||
                 path.equals("/error");
     }
 
@@ -43,44 +42,38 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     FilterChain filterChain)
             throws ServletException, IOException {
 
-        log.debug("JWT Filter processing: {} {}", request.getMethod(), request.getRequestURI());
-
         String authHeader = request.getHeader("Authorization");
 
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            String token = authHeader.substring(7);
+            String token = authHeader.substring(7).trim();
 
             try {
+                Claims claims = jwtUtil.validateToken(token);
+
                 if (logoutService.isTokenInvalid(token)) {
                     log.warn("Attempt to use invalidated token");
                     sendErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED, "Token has been invalidated");
                     return;
                 }
 
-                Claims claims = jwtUtil.validateToken(token);
                 String email = claims.getSubject();
-
                 if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                     UsernamePasswordAuthenticationToken authentication =
                             new UsernamePasswordAuthenticationToken(email, null, Collections.emptyList());
                     authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-
                     SecurityContextHolder.getContext().setAuthentication(authentication);
-                    log.debug("Usuario autenticado: {}", email);
                 }
             } catch (ExpiredJwtException e) {
-                log.warn("Token expirado: {}", e.getMessage());
                 sendErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED, "Token expired");
                 return;
             } catch (SignatureException e) {
-                log.warn("Firma JWT inválida: {}", e.getMessage());
                 sendErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED, "Invalid token signature");
                 return;
             } catch (MalformedJwtException e) {
-                log.warn("Token JWT malformado: {}", e.getMessage());
-                sendErrorResponse(response, HttpServletResponse.SC_BAD_REQUEST, "Malformed token");
+                sendErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED, "Malformed token");
                 return;
             } catch (Exception e) {
+                // Incluye fallos de Redis: si no se puede comprobar, no se deja pasar
                 log.error("Error validando JWT: {}", e.getMessage());
                 sendErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED, "Invalid token");
                 return;
