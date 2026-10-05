@@ -18,8 +18,8 @@ public class GoogleTokenVerifierServiceTest {
     private GoogleTokenVerifierService service;
 
     @BeforeEach
-    void setup() {
-        service = new GoogleTokenVerifierService();
+    void setup() throws Exception {
+        service = new GoogleTokenVerifierService("test-client-id");
     }
 
     @Test
@@ -40,7 +40,7 @@ public class GoogleTokenVerifierServiceTest {
         GoogleIdTokenVerifier verifier = mock(GoogleIdTokenVerifier.class);
         when(verifier.verify(token)).thenReturn(idToken);
 
-        GoogleTokenVerifierService testService = new GoogleTokenVerifierService() {
+        GoogleTokenVerifierService testService = new GoogleTokenVerifierService("test-client-id") {
 
             @Override
             public GoogleIdToken.Payload verify(String idTokenString) {
@@ -77,7 +77,7 @@ public class GoogleTokenVerifierServiceTest {
         GoogleIdTokenVerifier verifier = mock(GoogleIdTokenVerifier.class);
         when(verifier.verify(invalidToken)).thenReturn(null);
 
-        GoogleTokenVerifierService testService = new GoogleTokenVerifierService() {
+        GoogleTokenVerifierService testService = new GoogleTokenVerifierService("test-client-id") {
 
             @Override
             public GoogleIdToken.Payload verify(String idTokenString) {

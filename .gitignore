@@ -32,3 +32,6 @@ build/
 ### VS Code ###
 .vscode/
 .env
+
+### JWT dev keys (USER-01) ###
+.local-keys/

@@ -5,6 +5,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.*;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import user.microservice.pets.application.services.EmailVerificationService;
+import user.microservice.pets.domain.exceptions.UserAlreadyExistsException;
 import user.microservice.pets.domain.model.User;
 import user.microservice.pets.domain.ports.out.UserRepositoryPort;
 
@@ -22,6 +24,9 @@ class RegisterUserUseCaseImplTest {
     @Mock
     private PasswordEncoder passwordEncoder;
 
+    @Mock
+    private EmailVerificationService emailVerificationService;
+
     @InjectMocks
     private RegisterUserUseCaseImpl registerUserUseCase;
 
@@ -30,14 +35,16 @@ class RegisterUserUseCaseImplTest {
     @BeforeEach
     void setUp() {
         user = new User();
+        user.setUsername("testuser");
         user.setEmail("correo@example.com");
-        user.setPassword("secreta123");
+        user.setPassword("Secreta123!");
     }
 
     @Test
     void shouldRegisterUserWhenEmailNotExists() {
         // Arrange
         when(userRepositoryPort.existsByEmail(user.getEmail())).thenReturn(false);
+        when(userRepositoryPort.existsByUsername(user.getUsername())).thenReturn(false);
         when(passwordEncoder.encode(user.getPassword())).thenReturn("encodedPassword");
         when(userRepositoryPort.save(any(User.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
@@ -50,6 +57,7 @@ class RegisterUserUseCaseImplTest {
         assertNotNull(result.getCreatedAt(), "La fecha de creación debe haberse establecido");
         assertEquals("encodedPassword", result.getPassword());
         verify(userRepositoryPort).save(any(User.class));
+        verify(emailVerificationService).sendCode(result);
     }
 
     @Test
@@ -58,7 +66,7 @@ class RegisterUserUseCaseImplTest {
         when(userRepositoryPort.existsByEmail(user.getEmail())).thenReturn(true);
 
         // Act & Assert
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
+        UserAlreadyExistsException exception = assertThrows(UserAlreadyExistsException.class, () -> {
             registerUserUseCase.register(user);
         });
 

@@ -3,6 +3,9 @@ package user.microservice.pets.application.services;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import user.microservice.pets.domain.enums.AuthProvider;
+import user.microservice.pets.domain.exceptions.ExpiredPasswordResetTokenException;
+import user.microservice.pets.domain.exceptions.InvalidPasswordResetTokenException;
 import user.microservice.pets.domain.model.PasswordResetToken;
 import user.microservice.pets.domain.model.User;
 import user.microservice.pets.domain.ports.out.EmailSenderPort;
@@ -45,8 +48,8 @@ class ResetPasswordServiceTest {
                 .thenReturn(Optional.empty());
 
         assertThatThrownBy(() ->
-                service.execute("bad-token", "newPass")
-        ).isInstanceOf(IllegalArgumentException.class);
+                service.execute("bad-token", "NewPass123!")
+        ).isInstanceOf(InvalidPasswordResetTokenException.class);
     }
 
     @Test
@@ -61,8 +64,8 @@ class ResetPasswordServiceTest {
                 .thenReturn(Optional.of(token));
 
         assertThatThrownBy(() ->
-                service.execute("token", "newPass")
-        ).isInstanceOf(IllegalArgumentException.class);
+                service.execute("token", "NewPass123!")
+        ).isInstanceOf(ExpiredPasswordResetTokenException.class);
 
         verify(tokenRepository).deleteByToken("token");
         verify(userRepository, never()).save(any());
@@ -81,23 +84,25 @@ class ResetPasswordServiceTest {
                 .id(UUID.randomUUID())
                 .email("test@mail.com")
                 .password("oldPass")
+                .authProvider(AuthProvider.LOCAL)
                 .build();
 
         when(tokenRepository.findByToken("token"))
                 .thenReturn(Optional.of(token));
         when(userRepository.findByEmail("test@mail.com"))
                 .thenReturn(Optional.of(user));
-        when(passwordEncoder.encode("newPass"))
+        when(passwordEncoder.encode("NewPass123!"))
                 .thenReturn("encodedPass");
 
-        service.execute("token", "newPass");
+        service.execute("token", "NewPass123!");
 
-        verify(passwordEncoder).encode("newPass");
+        verify(passwordEncoder).encode("NewPass123!");
         verify(userRepository).save(user);
-        verify(tokenRepository).deleteByToken("token");
+        // El exito borra TODOS los tokens de reset del usuario (no solo el usado)
+        verify(tokenRepository).deleteByEmail("test@mail.com");
         verify(emailSender).sendEmail(
                 eq("test@mail.com"),
-                eq("Contraseña cambiada con éxito"),
+                eq("Tu contraseña de MyAnimaLog fue cambiada"),
                 anyString()
         );
     }

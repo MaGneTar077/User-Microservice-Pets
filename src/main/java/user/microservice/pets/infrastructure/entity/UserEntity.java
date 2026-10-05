@@ -3,6 +3,7 @@ package user.microservice.pets.infrastructure.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import user.microservice.pets.domain.enums.AuthProvider;
+import user.microservice.pets.domain.enums.PlatformRole;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -36,5 +37,9 @@ public class UserEntity {
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "platform_role", nullable = false)
+    private PlatformRole platformRole;
 
 }

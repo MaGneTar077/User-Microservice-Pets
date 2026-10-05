@@ -33,7 +33,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String path = request.getRequestURI();
         return path.startsWith("/auth/") ||
                 path.startsWith("/user/register") ||
-                path.equals("/error");
+                path.equals("/error") ||
+                path.equals("/.well-known/jwks.json") ||
+                path.startsWith("/internal/");
     }
 
     @Override
@@ -56,10 +58,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     return;
                 }
 
-                String email = claims.getSubject();
-                if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                // El principal se identifica por el claim "id" (presente en tokens viejos HS256
+                // y nuevos RS256), no por "sub": en los tokens nuevos sub pasa a ser el UUID del
+                // usuario segun el contrato compartido, pero en los viejos sub era el email.
+                String userId = claims.get("id", String.class);
+                if (userId != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                     UsernamePasswordAuthenticationToken authentication =
-                            new UsernamePasswordAuthenticationToken(email, null, Collections.emptyList());
+                            new UsernamePasswordAuthenticationToken(userId, null, Collections.emptyList());
                     authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authentication);
                 }

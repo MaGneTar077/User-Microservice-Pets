@@ -92,7 +92,6 @@ class UpdateUserProfileUseCaseImplTest {
                 .build();
 
         when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(existingUser));
-        when(userRepositoryPort.existsByUsername(sameUsername)).thenReturn(true);
         when(userRepositoryPort.save(any(User.class))).thenReturn(existingUser);
 
         // When
@@ -103,7 +102,8 @@ class UpdateUserProfileUseCaseImplTest {
         assertThat(result.getUsername()).isEqualTo(sameUsername);
 
         verify(userRepositoryPort, times(1)).findById(userId);
-        verify(userRepositoryPort, times(1)).existsByUsername(sameUsername);
+        // El username no cambio: no hace falta chequear unicidad
+        verify(userRepositoryPort, never()).existsByUsername(anyString());
         verify(userRepositoryPort, times(1)).save(any(User.class));
     }
 

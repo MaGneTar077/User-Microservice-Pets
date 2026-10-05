@@ -8,6 +8,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import user.microservice.pets.domain.enums.AuthProvider;
+import user.microservice.pets.domain.enums.PlatformRole;
 
 @Data
 @AllArgsConstructor
@@ -23,5 +24,6 @@ public class User {
     private boolean emailVerified;
     private LocalDateTime createdAt;
     private AuthProvider authProvider;
+    private PlatformRole platformRole;
 
 }

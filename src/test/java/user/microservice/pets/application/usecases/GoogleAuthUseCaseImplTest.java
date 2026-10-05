@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import user.microservice.pets.application.services.GoogleTokenVerifierService;
 import user.microservice.pets.domain.enums.AuthProvider;
+import user.microservice.pets.domain.enums.PlatformRole;
 import user.microservice.pets.domain.model.User;
 import user.microservice.pets.domain.ports.in.GoogleAuthUseCase;
 import user.microservice.pets.domain.ports.out.UserRepositoryPort;
@@ -44,6 +45,7 @@ public class GoogleAuthUseCaseImplTest {
 
         User existingUser = new User();
         existingUser.setEmail(email);
+        existingUser.setEmailVerified(true);
 
         when(googleTokenVerifierService.verify(fakeIdToken))
                 .thenReturn(buildPayload(email, "Test User", "http://pic.url"));
@@ -81,6 +83,39 @@ public class GoogleAuthUseCaseImplTest {
         assertThat(result.getAuthProvider()).isEqualTo(AuthProvider.GOOGLE);
         assertThat(result.getId()).isNotNull();
         assertThat(result.getCreatedAt()).isNotNull();
+        // Google ya verifico el email: las altas nuevas por Google deben quedar verificadas.
+        assertThat(result.isEmailVerified()).isTrue();
+        assertThat(result.getPlatformRole()).isEqualTo(PlatformRole.USER);
+    }
+
+    @Test
+    void shouldClaimUnverifiedLocalAccountAndMarkEmailVerified() {
+        //Given
+        String email = "unverified@gmail.com";
+        String fakeIdToken = "fake-id-token";
+
+        User unverifiedLocalUser = User.builder()
+                .email(email)
+                .username("existinguser")
+                .password("some-bcrypt-hash")
+                .authProvider(AuthProvider.LOCAL)
+                .emailVerified(false)
+                .platformRole(PlatformRole.USER)
+                .build();
+
+        when(googleTokenVerifierService.verify(fakeIdToken))
+                .thenReturn(buildPayload(email, "Existing User", "http://pic.url"));
+        when(userRepositoryPort.findByEmail(email)).thenReturn(Optional.of(unverifiedLocalUser));
+        when(userRepositoryPort.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        //When
+        User result = googleAuthUseCase.authenticate(fakeIdToken);
+
+        //Then: la cuenta local sin verificar queda "reclamada" por Google, con el email verificado.
+        assertThat(result.isEmailVerified()).isTrue();
+        assertThat(result.getAuthProvider()).isEqualTo(AuthProvider.GOOGLE);
+        assertThat(result.getPassword()).isNull();
+        verify(userRepositoryPort).save(any(User.class));
     }
 
 }

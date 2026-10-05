@@ -5,6 +5,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import user.microservice.pets.application.services.EmailVerificationService;
 import user.microservice.pets.domain.enums.AuthProvider;
+import user.microservice.pets.domain.enums.PlatformRole;
 import user.microservice.pets.domain.exceptions.InvalidUserDataException;
 import user.microservice.pets.domain.exceptions.UserAlreadyExistsException;
 import user.microservice.pets.domain.model.User;
@@ -39,6 +40,7 @@ public class RegisterUserUseCaseImpl implements RegisterUserUseCase {
         user.setCreatedAt(LocalDateTime.now());
         user.setAuthProvider(AuthProvider.LOCAL);
         user.setEmailVerified(false);
+        user.setPlatformRole(PlatformRole.USER);
 
         User saved = userRepositoryPort.save(user);
         emailVerificationService.sendCode(saved);

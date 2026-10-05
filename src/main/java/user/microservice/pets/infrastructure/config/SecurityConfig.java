@@ -9,6 +9,7 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import user.microservice.pets.infrastructure.security.InternalApiKeyFilter;
 import user.microservice.pets.infrastructure.security.JwtAuthenticationFilter;
 
 @Configuration
@@ -17,6 +18,7 @@ import user.microservice.pets.infrastructure.security.JwtAuthenticationFilter;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final InternalApiKeyFilter internalApiKeyFilter;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -29,7 +31,11 @@ public class SecurityConfig {
                                 "/user/register",
                                 "/api/**",
                                 "/actuator/**",
-                                "/error"
+                                "/error",
+                                "/.well-known/jwks.json",
+                                // /internal/** no usa JWT de usuario: lo protege InternalApiKeyFilter
+                                // (X-Internal-Api-Key), no Spring Security.
+                                "/internal/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )
@@ -38,7 +44,8 @@ public class SecurityConfig {
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
 
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(internalApiKeyFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }

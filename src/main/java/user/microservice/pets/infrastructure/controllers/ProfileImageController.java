@@ -10,8 +10,11 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import user.microservice.pets.application.dto.ProfileImageUploadResponse;
 import user.microservice.pets.application.services.ProfileImageService;
+import user.microservice.pets.domain.exceptions.UnauthorizedAccessException;
 import user.microservice.pets.domain.model.User;
 import user.microservice.pets.domain.ports.out.UserRepositoryPort;
+
+import java.util.UUID;
 
 @Slf4j
 @RestController
@@ -27,9 +30,7 @@ public class ProfileImageController {
             @RequestParam("file") MultipartFile file,
             Authentication authentication) {
 
-        String email = authentication.getName();
-        User user = userRepositoryPort.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+        User user = resolveAuthenticatedUser(authentication);
 
         log.info("Subiendo imagen de perfil para usuario: {}", user.getId());
 
@@ -40,14 +41,23 @@ public class ProfileImageController {
 
     @DeleteMapping("/image")
     public ResponseEntity<Void> deleteProfileImage(Authentication authentication) {
-        String email = authentication.getName();
-        User user = userRepositoryPort.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+        User user = resolveAuthenticatedUser(authentication);
 
         log.info("Eliminando imagen de perfil para usuario: {}", user.getId());
 
         profileImageService.deleteProfileImage(user.getId());
 
         return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+    }
+
+    private User resolveAuthenticatedUser(Authentication authentication) {
+        UUID userId;
+        try {
+            userId = UUID.fromString(authentication.getName());
+        } catch (IllegalArgumentException e) {
+            throw new UnauthorizedAccessException("Invalid authentication token");
+        }
+        return userRepositoryPort.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
     }
 }

@@ -62,14 +62,15 @@ class UpdateProfileControllerTest {
 
         Authentication authentication = mock(Authentication.class);
         when(authentication.isAuthenticated()).thenReturn(true);
-        when(authentication.getName()).thenReturn(email);
+        // El principal es el id del usuario (claim "id" del JWT), no el email.
+        when(authentication.getName()).thenReturn(userId.toString());
 
         SecurityContext securityContext = mock(SecurityContext.class);
         when(securityContext.getAuthentication()).thenReturn(authentication);
 
         SecurityContextHolder.setContext(securityContext);
 
-        when(userRepositoryPort.findByEmail(email))
+        when(userRepositoryPort.findById(userId))
                 .thenReturn(Optional.of(authenticatedUser));
 
         when(updateUserProfileUseCase.updateProfile(any(User.class)))
