@@ -50,12 +50,12 @@ class GetProfileControllerTest {
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        // Simular usuario autenticado
+        // Simular usuario autenticado: el principal es el id del usuario (claim "id" del JWT)
         UsernamePasswordAuthenticationToken authentication =
-                new UsernamePasswordAuthenticationToken(email, null, null);
+                new UsernamePasswordAuthenticationToken(userId.toString(), null, null);
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
-        when(userRepositoryPort.findByEmail(email))
+        when(userRepositoryPort.findById(userId))
                 .thenReturn(Optional.of(authenticatedUser));
 
         when(getProfileUseCase.getProfile(userId))

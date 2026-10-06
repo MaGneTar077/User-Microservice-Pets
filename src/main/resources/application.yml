@@ -82,6 +82,15 @@ server:
 
 jwt:
   secret: ${JWT_SECRET}
+  private-key-pem: ${JWT_PRIVATE_KEY_PEM:}
+  key-id: ${JWT_KEY_ID:dev-key-1}
+  access-ttl-minutes: ${JWT_ACCESS_TTL_MINUTES:60}
+  accept-legacy: ${JWT_ACCEPT_LEGACY:true}
+  issuer: ${JWT_ISSUER:myanimalog-user-service}
+  audience: ${JWT_AUDIENCE:myanimalog-api}
+
+internal:
+  api-key: ${INTERNAL_API_KEY}
 
 app:
   frontend-url: ${FRONTEND_URL:http://localhost:8100}

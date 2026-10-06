@@ -3,6 +3,8 @@ package user.microservice.pets.application.services;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
+import io.jsonwebtoken.MalformedJwtException;
+import io.jsonwebtoken.security.SignatureException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -42,8 +44,18 @@ public class LogoutService {
         } catch (ExpiredJwtException e) {
             log.warn("Attempt to logout with expired token");
             throw new InvalidTokenException("Token is expired");
+        } catch (MalformedJwtException e) {
+            log.warn("Attempt to logout with malformed token");
+            throw new InvalidTokenException("Malformed token");
+        } catch (SignatureException e) {
+            log.warn("Attempt to logout with invalid token signature");
+            throw new InvalidTokenException("Invalid token signature");
         } catch (JwtException | IllegalArgumentException e) {
             log.warn("Attempt to logout with invalid token: {}", e.getMessage());
+            throw new InvalidTokenException("Invalid token");
+        } catch (Exception e) {
+            // Fail-closed: cualquier error inesperado al validar tampoco deja cerrar sesion silenciosamente
+            log.error("Unexpected error validating token on logout: {}", e.getMessage());
             throw new InvalidTokenException("Invalid token");
         }
 
@@ -61,7 +73,7 @@ public class LogoutService {
             throw new InvalidTokenException("Token is already invalidated");
         }
 
-        log.info("Token invalidated successfully for user: {}", claims.getSubject());
+        log.info("Token invalidated successfully for user: {}", claims.get("email", String.class));
         return claims;
     }
 

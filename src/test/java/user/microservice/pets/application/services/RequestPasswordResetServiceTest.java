@@ -2,6 +2,7 @@ package user.microservice.pets.application.services;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import user.microservice.pets.domain.enums.AuthProvider;
 import user.microservice.pets.domain.model.User;
 import user.microservice.pets.domain.ports.out.EmailSenderPort;
 import user.microservice.pets.domain.ports.out.PasswordResetTokenRepositoryPort;
@@ -28,7 +29,8 @@ class RequestPasswordResetServiceTest {
         service = new RequestPasswordResetService(
                 userRepository,
                 tokenRepository,
-                emailSender
+                emailSender,
+                "http://localhost:8100"
         );
     }
 
@@ -48,6 +50,7 @@ class RequestPasswordResetServiceTest {
         User user = User.builder()
                 .id(UUID.randomUUID())
                 .email("test@mail.com")
+                .authProvider(AuthProvider.LOCAL)
                 .build();
 
         when(userRepository.findByEmail("test@mail.com"))

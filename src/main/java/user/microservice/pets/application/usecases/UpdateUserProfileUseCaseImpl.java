@@ -29,7 +29,7 @@ public class UpdateUserProfileUseCaseImpl implements UpdateUserProfileUseCase {
         User existingUser = userRepositoryPort.findById(updatedUser.getId())
                 .orElseThrow(() -> {
                     log.warn("Attempt to update non-existent user with id: {}", updatedUser.getId());
-                    return new UserNotFoundException("User not found");
+                    return new UserNotFoundException("User not found with id: " + updatedUser.getId());
                 });
 
         boolean usernameChanged = !existingUser.getUsername().equals(updatedUser.getUsername());

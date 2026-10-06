@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import user.microservice.pets.application.services.GoogleTokenVerifierService;
 import user.microservice.pets.domain.enums.AuthProvider;
+import user.microservice.pets.domain.enums.PlatformRole;
 import user.microservice.pets.domain.model.User;
 import user.microservice.pets.domain.ports.in.GoogleAuthUseCase;
 import user.microservice.pets.domain.ports.out.UserRepositoryPort;
@@ -70,6 +71,7 @@ public class GoogleAuthUseCaseImpl implements GoogleAuthUseCase {
                 .createdAt(LocalDateTime.now())
                 .authProvider(AuthProvider.GOOGLE)
                 .emailVerified(true)
+                .platformRole(PlatformRole.USER)
                 .build());
     }
 }

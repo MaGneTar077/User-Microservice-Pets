@@ -44,14 +44,19 @@ public class GetProfileController {
             throw new UnauthorizedAccessException("Authentication required");
         }
 
-        String authenticatedEmail = authentication.getName();
+        UUID authenticatedUserId;
+        try {
+            authenticatedUserId = UUID.fromString(authentication.getName());
+        } catch (IllegalArgumentException e) {
+            throw new UnauthorizedAccessException("Invalid authentication token");
+        }
 
-        User authenticatedUser = userRepositoryPort.findByEmail(authenticatedEmail)
+        User authenticatedUser = userRepositoryPort.findById(authenticatedUserId)
                 .orElseThrow(() -> new UnauthorizedAccessException("User not found"));
 
         if (!authenticatedUser.getId().equals(userId)) {
             log.warn("User {} attempted to access profile of user {}",
-                    authenticatedEmail, userId);
+                    authenticatedUserId, userId);
             throw new UnauthorizedAccessException("You can only access your own profile");
         }
 

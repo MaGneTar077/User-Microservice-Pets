@@ -7,6 +7,7 @@ import user.microservice.pets.domain.model.User;
 import user.microservice.pets.infrastructure.entity.UserEntity;
 import user.microservice.pets.infrastructure.repositories.JpaUserRepository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -26,6 +27,13 @@ public class UserRepositoryAdapter implements UserRepositoryPort {
     public Optional<User> findById(UUID id) {
         return jpaUserRepository.findById(id)
                 .map(this::toDomainModel);
+    }
+
+    @Override
+    public List<User> findAllByIds(List<UUID> ids) {
+        return jpaUserRepository.findAllById(ids).stream()
+                .map(this::toDomainModel)
+                .toList();
     }
 
     @Override
@@ -65,6 +73,7 @@ public class UserRepositoryAdapter implements UserRepositoryPort {
                 .createdAt(entity.getCreatedAt())
                 .authProvider(entity.getAuthProvider())
                 .emailVerified(entity.isEmailVerified())
+                .platformRole(entity.getPlatformRole())
                 .build();
     }
 
@@ -78,6 +87,7 @@ public class UserRepositoryAdapter implements UserRepositoryPort {
                 .createdAt(domain.getCreatedAt())
                 .authProvider(domain.getAuthProvider())
                 .emailVerified(domain.isEmailVerified())
+                .platformRole(domain.getPlatformRole())
                 .build();
     }
 }

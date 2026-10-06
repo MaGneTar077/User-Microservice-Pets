@@ -11,9 +11,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 import user.microservice.pets.domain.exceptions.InvalidTokenException;
 import user.microservice.pets.infrastructure.security.JwtUtil;
 
+import java.time.Duration;
 import java.util.Date;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -26,6 +29,12 @@ class LogoutServiceTest {
 
     @Mock
     private JwtUtil jwtUtil;
+
+    @Mock
+    private StringRedisTemplate redisTemplate;
+
+    @Mock
+    private ValueOperations<String, String> valueOperations;
 
     @InjectMocks
     private LogoutService logoutService;
@@ -46,7 +55,9 @@ class LogoutServiceTest {
         Date futureExpiration = new Date(System.currentTimeMillis() + 3600000); // 1 hora en el futuro
         when(jwtUtil.validateToken(validToken)).thenReturn(mockClaims);
         when(mockClaims.getExpiration()).thenReturn(futureExpiration);
-        when(mockClaims.getSubject()).thenReturn("test@example.com");
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.setIfAbsent(anyString(), anyString(), any(Duration.class))).thenReturn(true);
+        when(redisTemplate.hasKey(anyString())).thenReturn(true);
 
         // When
         logoutService.logout(validToken);
@@ -139,7 +150,10 @@ class LogoutServiceTest {
         Date futureExpiration = new Date(System.currentTimeMillis() + 3600000);
         when(jwtUtil.validateToken(validToken)).thenReturn(mockClaims);
         when(mockClaims.getExpiration()).thenReturn(futureExpiration);
-        when(mockClaims.getSubject()).thenReturn("test@example.com");
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.setIfAbsent(anyString(), anyString(), any(Duration.class)))
+                .thenReturn(true)
+                .thenReturn(false);
 
         // First logout
         logoutService.logout(validToken);
@@ -246,14 +260,17 @@ class LogoutServiceTest {
 
         when(jwtUtil.validateToken(anyString())).thenReturn(mockClaims);
         when(mockClaims.getExpiration()).thenReturn(futureExpiration);
-        when(mockClaims.getSubject()).thenReturn("test@example.com");
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.setIfAbsent(anyString(), anyString(), any(Duration.class))).thenReturn(true);
+        when(redisTemplate.hasKey(anyString())).thenReturn(true);
 
         // When
         logoutService.logout(token1);
         logoutService.logout(token2);
 
         // Then
-        assertThat(logoutService.getBlacklistSize()).isEqualTo(2);
+        assertThat(logoutService.isTokenInvalid(token1)).isTrue();
+        assertThat(logoutService.isTokenInvalid(token2)).isTrue();
     }
 
     @Test
@@ -267,7 +284,9 @@ class LogoutServiceTest {
 
         when(jwtUtil.validateToken(anyString())).thenReturn(mockClaims);
         when(mockClaims.getExpiration()).thenReturn(futureExpiration);
-        when(mockClaims.getSubject()).thenReturn("test@example.com");
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.setIfAbsent(anyString(), anyString(), any(Duration.class))).thenReturn(true);
+        when(redisTemplate.hasKey(anyString())).thenReturn(true);
 
         // When
         logoutService.logout(token1);
@@ -278,6 +297,5 @@ class LogoutServiceTest {
         assertThat(logoutService.isTokenInvalid(token1)).isTrue();
         assertThat(logoutService.isTokenInvalid(token2)).isTrue();
         assertThat(logoutService.isTokenInvalid(token3)).isTrue();
-        assertThat(logoutService.getBlacklistSize()).isEqualTo(3);
     }
 }
