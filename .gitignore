@@ -35,3 +35,6 @@ build/
 
 ### JWT dev keys (USER-01) ###
 .local-keys/
+*.pem
+*.key
+*.p12
