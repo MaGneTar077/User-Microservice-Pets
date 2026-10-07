@@ -30,13 +30,22 @@ public class RefreshTokenService {
     private final RefreshTokenRepositoryPort refreshTokenRepository;
 
     public String issue(UUID userId) {
+        return issue(userId, TokenContext.USER, null);
+    }
+
+    public String issueVeterinaryContext(UUID userId, UUID veterinaryId) {
+        return issue(userId, TokenContext.VETERINARY, veterinaryId);
+    }
+
+    private String issue(UUID userId, TokenContext context, UUID veterinaryId) {
         String rawToken = generateRawToken();
 
         RefreshToken token = RefreshToken.builder()
                 .id(UUID.randomUUID())
                 .userId(userId)
                 .tokenHash(hash(rawToken))
-                .context(TokenContext.USER)
+                .context(context)
+                .veterinaryId(veterinaryId)
                 .expiresAt(LocalDateTime.now().plusDays(VALIDITY_DAYS))
                 .createdAt(LocalDateTime.now())
                 .build();
@@ -45,7 +54,12 @@ public class RefreshTokenService {
         return rawToken;
     }
 
-    public RotatedRefreshToken rotate(String rawToken) {
+    /**
+     * Busca y valida un refresh token (firma = existe, no revocado, no expirado) sin rotarlo
+     * todavia. Separado de rotate() porque USER-04 necesita consultar la membresia de Veterinary
+     * ANTES de decidir si rota o revoca.
+     */
+    public RefreshToken validate(String rawToken) {
         RefreshToken existing = refreshTokenRepository.findByTokenHash(hash(rawToken))
                 .orElseThrow(() -> new InvalidTokenException("Invalid refresh token"));
 
@@ -60,6 +74,14 @@ public class RefreshTokenService {
             throw new InvalidTokenException("Refresh token expired");
         }
 
+        return existing;
+    }
+
+    public RotatedRefreshToken rotate(String rawToken) {
+        return rotate(validate(rawToken));
+    }
+
+    public RotatedRefreshToken rotate(RefreshToken existing) {
         String newRawToken = generateRawToken();
         RefreshToken newToken = RefreshToken.builder()
                 .id(UUID.randomUUID())
@@ -76,7 +98,7 @@ public class RefreshTokenService {
         existing.setReplacedBy(newToken.getId());
         refreshTokenRepository.save(existing);
 
-        return new RotatedRefreshToken(existing.getUserId(), newRawToken);
+        return new RotatedRefreshToken(existing.getUserId(), newRawToken, existing.getContext(), existing.getVeterinaryId());
     }
 
     public void revoke(String rawToken) {
@@ -85,10 +107,12 @@ public class RefreshTokenService {
         }
         refreshTokenRepository.findByTokenHash(hash(rawToken))
                 .filter(token -> token.getRevokedAt() == null)
-                .ifPresent(token -> {
-                    token.setRevokedAt(LocalDateTime.now());
-                    refreshTokenRepository.save(token);
-                });
+                .ifPresent(this::revoke);
+    }
+
+    public void revoke(RefreshToken existing) {
+        existing.setRevokedAt(LocalDateTime.now());
+        refreshTokenRepository.save(existing);
     }
 
     private String generateRawToken() {
@@ -111,6 +135,6 @@ public class RefreshTokenService {
         }
     }
 
-    public record RotatedRefreshToken(UUID userId, String rawToken) {
+    public record RotatedRefreshToken(UUID userId, String rawToken, TokenContext context, UUID veterinaryId) {
     }
 }

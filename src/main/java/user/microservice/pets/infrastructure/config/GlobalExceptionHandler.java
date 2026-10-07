@@ -197,4 +197,42 @@ public class GlobalExceptionHandler {
                 "error", ex.getMessage(),
                 "status", 400));
     }
+
+    @ExceptionHandler(NotVeterinaryMemberException.class)
+    public ResponseEntity<Map<String, Object>> handleNotVeterinaryMember(NotVeterinaryMemberException ex) {
+        log.warn("Veterinary context denied - not an active member: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                "error", ex.getMessage(),
+                "code", "NOT_A_VETERINARY_MEMBER",
+                "status", 403));
+    }
+
+    @ExceptionHandler(VeterinaryRejectedException.class)
+    public ResponseEntity<Map<String, Object>> handleVeterinaryRejected(VeterinaryRejectedException ex) {
+        log.warn("Veterinary context denied - clinic rejected: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                "error", ex.getMessage(),
+                "code", "VETERINARY_REJECTED",
+                "status", 403));
+    }
+
+    @ExceptionHandler(VeterinaryMembershipRevokedException.class)
+    public ResponseEntity<Map<String, Object>> handleVeterinaryMembershipRevoked(VeterinaryMembershipRevokedException ex) {
+        log.warn("Veterinary refresh denied - membership revoked: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of(
+                "error", ex.getMessage(),
+                "code", "VETERINARY_MEMBERSHIP_REVOKED",
+                "status", 401));
+    }
+
+    @ExceptionHandler(VeterinaryServiceUnavailableException.class)
+    public ResponseEntity<ErrorResponse> handleVeterinaryServiceUnavailable(VeterinaryServiceUnavailableException ex) {
+        log.error("Veterinary service unavailable: {}", ex.getMessage());
+        ErrorResponse error = new ErrorResponse(
+                HttpStatus.SERVICE_UNAVAILABLE.value(),
+                "Veterinary service is unavailable, please try again",
+                LocalDateTime.now()
+        );
+        return new ResponseEntity<>(error, HttpStatus.SERVICE_UNAVAILABLE);
+    }
 }

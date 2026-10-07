@@ -31,6 +31,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
+
+        // /auth/context/** SI requiere autenticacion (token de usuario valido), a diferencia
+        // del resto de /auth/** (login/refresh/logout son publicos o manejan su propio token).
+        if (path.startsWith("/auth/context/")) {
+            return false;
+        }
+
         return path.startsWith("/auth/") ||
                 path.startsWith("/user/register") ||
                 path.equals("/error") ||

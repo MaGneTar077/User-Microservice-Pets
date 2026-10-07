@@ -26,6 +26,9 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
 
                 .authorizeHttpRequests(auth -> auth
+                        // Mas especifico primero: /auth/context/** SI exige autenticacion,
+                        // aunque caiga bajo el patron /auth/** que es publico mas abajo.
+                        .requestMatchers("/auth/context/**").authenticated()
                         .requestMatchers(
                                 "/auth/**",
                                 "/user/register",

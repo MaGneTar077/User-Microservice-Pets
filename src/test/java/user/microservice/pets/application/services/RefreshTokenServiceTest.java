@@ -158,12 +158,91 @@ class RefreshTokenServiceTest {
     @Test
     @DisplayName("revoke() should do nothing for a blank or unknown token (best-effort, used from logout)")
     void revokeShouldBeNoOpForBlankOrUnknownToken() {
-        service.revoke(null);
+        service.revoke((String) null);
         service.revoke("");
 
         when(refreshTokenRepository.findByTokenHash(any())).thenReturn(Optional.empty());
         service.revoke("unknown-token");
 
         verify(refreshTokenRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("issueVeterinaryContext() should persist context=VETERINARY with the clinic id")
+    void issueVeterinaryContextShouldPersistClinicContext() {
+        UUID userId = UUID.randomUUID();
+        UUID veterinaryId = UUID.randomUUID();
+        ArgumentCaptor<RefreshToken> captor = ArgumentCaptor.forClass(RefreshToken.class);
+        when(refreshTokenRepository.save(captor.capture())).thenAnswer(inv -> inv.getArgument(0));
+
+        String rawToken = service.issueVeterinaryContext(userId, veterinaryId);
+
+        assertThat(rawToken).isNotBlank();
+        RefreshToken saved = captor.getValue();
+        assertThat(saved.getUserId()).isEqualTo(userId);
+        assertThat(saved.getContext()).isEqualTo(TokenContext.VETERINARY);
+        assertThat(saved.getVeterinaryId()).isEqualTo(veterinaryId);
+    }
+
+    @Test
+    @DisplayName("validate() should return the stored token without rotating it")
+    void validateShouldReturnTokenWithoutRotating() {
+        RefreshToken activeToken = RefreshToken.builder()
+                .id(UUID.randomUUID())
+                .userId(UUID.randomUUID())
+                .tokenHash("somehash")
+                .context(TokenContext.VETERINARY)
+                .veterinaryId(UUID.randomUUID())
+                .expiresAt(LocalDateTime.now().plusDays(10))
+                .createdAt(LocalDateTime.now())
+                .build();
+        when(refreshTokenRepository.findByTokenHash(any())).thenReturn(Optional.of(activeToken));
+
+        RefreshToken result = service.validate("some-raw-token");
+
+        assertThat(result).isSameAs(activeToken);
+        assertThat(result.getRevokedAt()).isNull();
+        verify(refreshTokenRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("rotate(RefreshToken) should rotate an already-validated token without looking it up again")
+    void rotateWithAlreadyValidatedTokenShouldRotate() {
+        RefreshToken existing = RefreshToken.builder()
+                .id(UUID.randomUUID())
+                .userId(UUID.randomUUID())
+                .tokenHash("somehash")
+                .context(TokenContext.VETERINARY)
+                .veterinaryId(UUID.randomUUID())
+                .expiresAt(LocalDateTime.now().plusDays(10))
+                .createdAt(LocalDateTime.now())
+                .build();
+        when(refreshTokenRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        RefreshTokenService.RotatedRefreshToken rotated = service.rotate(existing);
+
+        assertThat(rotated.userId()).isEqualTo(existing.getUserId());
+        assertThat(rotated.context()).isEqualTo(TokenContext.VETERINARY);
+        assertThat(rotated.veterinaryId()).isEqualTo(existing.getVeterinaryId());
+        assertThat(existing.getRevokedAt()).isNotNull();
+        verify(refreshTokenRepository, never()).findByTokenHash(any());
+    }
+
+    @Test
+    @DisplayName("revoke(RefreshToken) should mark it revoked and save it")
+    void revokeWithTokenInstanceShouldMarkRevoked() {
+        RefreshToken existing = RefreshToken.builder()
+                .id(UUID.randomUUID())
+                .userId(UUID.randomUUID())
+                .tokenHash("somehash")
+                .context(TokenContext.VETERINARY)
+                .expiresAt(LocalDateTime.now().plusDays(10))
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        service.revoke(existing);
+
+        assertThat(existing.getRevokedAt()).isNotNull();
+        verify(refreshTokenRepository).save(existing);
     }
 }

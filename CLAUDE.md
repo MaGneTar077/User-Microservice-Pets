@@ -6,7 +6,7 @@ Este archivo documenta el microservicio de usuarios del backend de "Proyecto Mas
 
 Microservicio Spring Boot encargado de la gestión de usuarios: registro, login (local y con Google), verificación de email, recuperación de contraseña, logout con invalidación de tokens, perfil de usuario y foto de perfil. Publica eventos de autenticación a Google Pub/Sub para que otros microservicios (p. ej. notificaciones) reaccionen a ellos.
 
-**Migración en curso (ver `CONTRATOS_COMPARTIDOS.md` y `USER_SERVICE_CHANGES.md`)**: este servicio se está convirtiendo en el **emisor único de JWT para todo el ecosistema MyAnimaLog** (Pets, Veterinary, Medical). Ya implementados: USER-01 (firma RS256 + JWKS), los claims de USER-02 (`platform_role`, `ctx`, `iss`, `aud`, `jti`, `email_verified`), los refresh tokens (USER-02/04) y los endpoints internos (USER-06). Sigue pendiente: el token de contexto de clínica (USER-03) — ver la sección de deuda técnica al final.
+**Migración en curso (ver `CONTRATOS_COMPARTIDOS.md` y `USER_SERVICE_CHANGES.md`)**: este servicio se está convirtiendo en el **emisor único de JWT para todo el ecosistema MyAnimaLog** (Pets, Veterinary, Medical). Ya implementados: USER-01 (firma RS256 + JWKS), los claims de USER-02 (`platform_role`, `ctx`, `iss`, `aud`, `jti`, `email_verified`), los refresh tokens (USER-02/04), los endpoints internos (USER-06) y el token de contexto de clínica (USER-03/04/05). Ver la sección de deuda técnica al final para lo que sigue pendiente.
 
 ## Stack tecnológico
 
@@ -30,13 +30,13 @@ El proyecto sigue **arquitectura hexagonal (ports & adapters)** dentro de un ún
 ```
 user.microservice.pets/
 ├── domain/                 → núcleo de negocio, sin dependencias de frameworks
-│   ├── model/               User, PasswordResetToken, RefreshToken (POJOs puros)
+│   ├── model/               User, PasswordResetToken, RefreshToken, VeterinaryMembership (POJOs puros)
 │   ├── enums/                AuthProvider (LOCAL, GOOGLE), PlatformRole (USER, PLATFORM_ADMIN), TokenContext (USER, VETERINARY)
 │   ├── policies/             PasswordPolicy (reglas de contraseña)
 │   ├── exceptions/           excepciones de negocio (RuntimeException)
 │   └── ports/
 │       ├── in/                interfaces de casos de uso (RegisterUserUseCase, LocalAuthUseCase, GoogleAuthUseCase, GetProfileUseCase, UpdateUserProfileUseCase, Upload/DeleteProfileImageUseCase, RequestPasswordResetUseCase, ResetPasswordUseCase, PublishAuthEventUseCase)
-│       └── out/               interfaces hacia infraestructura (UserRepositoryPort, PasswordResetTokenRepositoryPort, RefreshTokenRepositoryPort, EmailSenderPort, EventPublisherPort, StoragePort)
+│       └── out/               interfaces hacia infraestructura (UserRepositoryPort, PasswordResetTokenRepositoryPort, RefreshTokenRepositoryPort, VeterinaryMembershipPort, EmailSenderPort, EventPublisherPort, StoragePort)
 ├── application/
 │   ├── dto/                 DTOs de request/response
 │   ├── services/             orquestación (EmailVerificationService, LogoutService, RefreshTokenService, GoogleTokenVerifierService, FileValidationService, ProfileImageService, PublishAuthEventService, RegisterService, RequestPasswordResetService, ResetPasswordService)
@@ -44,10 +44,10 @@ user.microservice.pets/
 └── infrastructure/
     ├── controllers/          9 @RestController (incluye JwksController, InternalUserController)
     ├── security/              JwtUtil, JwtAuthenticationFilter, JwtKeyProvider, JwtSigningKeyResolver, InternalApiKeyFilter
-    ├── config/                SecurityConfig, BeansConfig, RestTemplateConfig, GlobalExceptionHandler
+    ├── config/                SecurityConfig, BeansConfig, RestTemplateConfig, VeterinaryClientConfig, GlobalExceptionHandler
     ├── entity/                UserEntity, PasswordResetTokenEntity, RefreshTokenEntity (JPA)
     ├── repositories/          JpaUserRepository, JpaPasswordResetTokenRepository, JpaRefreshTokenRepository
-    ├── adapters/              UserRepositoryAdapter, PasswordResetTokenRepositoryAdapter, RefreshTokenRepositoryAdapter, SupabaseStorageAdapter, GooglePubSubAuthEventAdapter
+    ├── adapters/              UserRepositoryAdapter, PasswordResetTokenRepositoryAdapter, RefreshTokenRepositoryAdapter, VeterinaryMembershipAdapter, SupabaseStorageAdapter, GooglePubSubAuthEventAdapter
     ├── email/                 EmailServiceAdapter (JavaMailSender)
     └── jobs/                  TokenCleanupJob (limpieza de tokens de reset expirados)
 ```
@@ -115,7 +115,7 @@ No existe tabla/entidad de roles: **no hay RBAC**. El control de acceso es por "
 - **Claims del contrato ya emitidos (USER-02)**, agregados en `AuthController.issueToken()` manteniendo los de siempre (`id`, `email`, `username`, `provider`) con los mismos nombres y valores:
   - `email_verified`: sale de `user.isEmailVerified()` (columna `users.email_verified`, ya existente).
   - `platform_role`: sale de `user.getPlatformRole()` (columna nueva `users.platform_role`, ver `db/scripts/001_platform_role.sql`). Todo usuario nuevo (registro local o alta automática por Google) se crea con `USER`.
-  - `ctx`: literal `"USER"` (token base). El token de contexto de clínica (`ctx="VETERINARY"`, USER-03) está fuera de alcance por ahora.
+  - `ctx`: `"USER"` en el token base; `"VETERINARY"` en el token de contexto de clínica (ver sección siguiente).
 ### Refresh tokens (USER-02/04)
 `RefreshTokenService` (`application/services/RefreshTokenService.java`), tabla `refresh_tokens` (ver arriba):
 - **Login** (`/auth/local`, `/auth/google`): además del access token de siempre, `AuthController` genera un refresh token opaco (32 bytes aleatorios, Base64 URL-safe) vía `RefreshTokenService.issue()`, y responde `{"token": "...", "refreshToken": "...", "expiresIn": <segundos>}` — los campos `token`/mensaje existentes **no cambiaron de nombre ni de significado**, solo se agregaron `refreshToken` y `expiresIn` (= `JWT_ACCESS_TTL_MINUTES * 60`).
@@ -126,8 +126,28 @@ No existe tabla/entidad de roles: **no hay RBAC**. El control de acceso es por "
   - Si expiró (30 días desde que se emitió) → 401.
   - Si es válido: lo marca revocado (`revokedAt`, `replacedBy` = id del nuevo), emite un refresh nuevo y un access token nuevo (mismos claims que un login, pero **sin** publicar `USER_LOGIN` — un refresh no es un login nuevo), y responde con el mismo formato `{"token", "refreshToken", "expiresIn"}`.
 - **`POST /auth/logout`**: ahora acepta opcionalmente un body `{"refreshToken": "..."}` (`LogoutRequest`); si viene, también revoca ese refresh (best-effort: si no existe o ya estaba revocado, no falla el logout). Sin body, el logout funciona exactamente igual que antes (solo blacklist del access token).
-- El campo `context` siempre es `USER` hoy (el token de contexto de clínica, `VETERINARY`, es USER-03 y está fuera de alcance).
+- El campo `context` es `USER` o `VETERINARY` (ver sección siguiente para este último).
 - **Pendiente**: no hay un job de limpieza para refresh tokens expirados/revocados (a diferencia de `TokenCleanupJob` para `password_reset_tokens`).
+
+### Token de contexto de clínica (USER-03/04/05)
+Permite a un usuario que es empleado de una clínica Veterinary obtener un JWT con permisos/identidad de esa clínica, sin perder su cuenta de usuario normal. Veterinary es la única fuente de verdad sobre membresías (`VeterinaryMembershipPort` → `VeterinaryMembershipAdapter`, `RestClient` con timeout de 3s, header `X-Internal-Api-Key`, hacia `GET {VETERINARY_SERVICE_URL}/internal/veterinaries/{veterinaryId}/members/{userId}`).
+
+- **`POST /auth/context/veterinary/{veterinaryId}`** (requiere JWT de usuario válido — `ctx` puede ser `USER` o `VETERINARY`, cualquier token no revocado sirve; body opcional `{"refreshToken": "..."}` con el refresh del contexto anterior, que se revoca si viene):
+  1. Consulta la membresía con el `id` del usuario del token (principal).
+  2. `member=false` o `active=false` → 403 `NOT_A_VETERINARY_MEMBER` (`NotVeterinaryMemberException`).
+  3. `veterinaryStatus=REJECTED` → 403 `VETERINARY_REJECTED` (`VeterinaryRejectedException`). Cualquier otro estado (`ACTIVE`, `SUSPENDED`, `PENDING_DOCUMENTS`, etc.) sí recibe el token — los permisos reales los limita Veterinary, no este servicio.
+  4. Veterinary caído/timeout/5xx → 503 (`VeterinaryServiceUnavailableException`), **nunca se emite un token sin confirmar la membresía**.
+  5. Emite un access token con **todos** los claims del token base (`id`, `email`, `username`, `provider`, `platform_role`, `email_verified`) más `ctx="VETERINARY"`, `vet_id`, `vet_role`, `employee_id`, `vet_licensed`, `vet_status`.
+  6. Emite un refresh token nuevo con `context=VETERINARY` y `veterinary_id`.
+  7. Responde `{ token, refreshToken, expiresIn, veterinary: { id, role, status } }`.
+- **`POST /auth/context/user`** (mismo requisito de autenticación; mismo body opcional para revocar el refresh de clínica anterior): emite un token normal (`ctx=USER`) y un refresh `context=USER`. Responde `{ token, refreshToken, expiresIn }` (sin el campo `veterinary`).
+- **`POST /auth/refresh` con un refresh `context=VETERINARY`** (USER-04): antes de rotar, vuelve a consultar la membresía actual (el rol/estado puede haber cambiado desde que se emitió el token):
+  - Sigue siendo miembro activo → rota normal y el access token nuevo trae el **rol y estado actuales** (no los que tenía el token viejo).
+  - Ya no es miembro activo → **revoca ese refresh** (sin rotarlo) y responde 401 `VETERINARY_MEMBERSHIP_REVOKED` (`VeterinaryMembershipRevokedException`).
+  - Veterinary caído → 503, sin revocar ni rotar nada.
+  - Un refresh `context=USER` sigue funcionando exactamente igual que antes y **nunca** consulta a Veterinary.
+- **Seguridad de `/auth/context/**`**: a diferencia del resto de `/auth/**` (público), estas rutas SÍ exigen autenticación — `JwtAuthenticationFilter.shouldNotFilter()` las excluye explícitamente de la lista de rutas públicas, y `SecurityConfig` tiene una regla `.requestMatchers("/auth/context/**").authenticated()` antes de la regla `permitAll` de `/auth/**` (en Spring Security gana la primera coincidencia).
+- `role`/`veterinaryStatus` se modelan como `String` (no enum) en `VeterinaryMembership`: Veterinary puede agregar valores nuevos (`OWNER`, `RECEPTIONIST`, `PENDING_DOCUMENTS`, etc.) sin coordinar con este servicio.
 
 ### Login con Google — `POST /auth/google`
 No usa el flujo redirect de Spring OAuth2 Client; implementa **verificación directa del ID Token** (patrón típico de "Sign in with Google" desde frontend/móvil):
@@ -163,7 +183,7 @@ No usa el flujo redirect de Spring OAuth2 Client; implementa **verificación dir
 - **⚠️ Sin CORS configurado**: una `CorsConfig` previa fue eliminada en el commit `22a9993` ("remove duplicate CORS config causing preflight failures on /auth/google") y no fue reemplazada. Si el frontend corre en otro origen, las llamadas cross-origin pueden fallar en el preflight salvo que se gestione en otra capa (API Gateway/proxy) o se reintroduzca configuración CORS explícita.
 
 ### Roles y permisos
-**No hay RBAC** (no hay `@PreAuthorize`, `@Secured`, entidad `Role` ni `GrantedAuthority` real — las authorities del token de seguridad están vacías). El control de acceso es de tipo **ownership**: los controllers de perfil comparan manualmente que el `id` autenticado (principal, extraído del claim `id`) coincida con el `{id}` del path, lanzando `UnauthorizedAccessException` (403) si no coincide. El contrato compartido (`CONTRATOS_COMPARTIDOS.md`) define un futuro `platform_role` (`USER`/`PLATFORM_ADMIN`) — aún no implementado (pendiente USER-02, columna `platform_role` en `users`).
+**No hay RBAC** (no hay `@PreAuthorize`, `@Secured`, entidad `Role` ni `GrantedAuthority` real — las authorities del token de seguridad están vacías). El control de acceso es de tipo **ownership**: los controllers de perfil comparan manualmente que el `id` autenticado (principal, extraído del claim `id`) coincida con el `{id}` del path, lanzando `UnauthorizedAccessException` (403) si no coincide. El JWT ya lleva `platform_role` (`USER`/`PLATFORM_ADMIN`) y, en tokens de contexto de clínica, `vet_role`/`vet_licensed`/`vet_status` — pero este servicio no los usa todavía para ninguna decisión de autorización propia; son para que los consuman otros servicios (p. ej. Veterinary).
 
 ### Recuperación de contraseña
 - `POST /auth/request-password-reset`: responde siempre el mismo mensaje genérico exista o no la cuenta (anti enumeration). Si el usuario es de Google, solo envía un correo informativo (no genera token). Si es local, borra tokens previos, genera un `UUID` válido 15 minutos, y envía el enlace (`{FRONTEND_URL}/reset-password?token=...`).
@@ -194,7 +214,9 @@ Pensados para que otros servicios del ecosistema (p. ej. Veterinary) consulten d
 |---|---|---|---|
 | POST | `/auth/google` | Login/registro automático vía ID Token de Google. Responde `{token, refreshToken, expiresIn}` | Pública |
 | POST | `/auth/local` | Login con email/password. Responde `{token, refreshToken, expiresIn}` | Pública |
-| POST | `/auth/refresh` | Rota un refresh token y emite un access token nuevo. Body `{refreshToken}` | Pública (valida el refresh token, no un JWT) |
+| POST | `/auth/refresh` | Rota un refresh token y emite un access token nuevo (re-valida membresía si era de contexto clínica). Body `{refreshToken}` | Pública (valida el refresh token, no un JWT) |
+| POST | `/auth/context/veterinary/{veterinaryId}` | Emite un token de contexto de clínica si el usuario es empleado activo. Body opcional `{refreshToken}` (revoca el contexto anterior) | **JWT requerido** |
+| POST | `/auth/context/user` | Vuelve al token normal (`ctx=USER`). Body opcional `{refreshToken}` (revoca el refresh de clínica) | **JWT requerido** |
 | POST | `/auth/logout` | Invalida el JWT actual (blacklist en Redis); si el body trae `{refreshToken}`, también lo revoca | Requiere `Authorization: Bearer` |
 
 ### `EmailVerificationController` — `/auth`
@@ -278,6 +300,10 @@ Pensados para que otros servicios del ecosistema (p. ej. Veterinary) consulten d
 | `InvalidVerificationCodeException` | 400 |
 | `MethodArgumentNotValidException` | 400 (mapa `campo→mensaje`) |
 | `Exception` genérica | 500 (mensaje genérico) |
+| `NotVeterinaryMemberException` | 403 (`code: NOT_A_VETERINARY_MEMBER`) |
+| `VeterinaryRejectedException` | 403 (`code: VETERINARY_REJECTED`) |
+| `VeterinaryMembershipRevokedException` | 401 (`code: VETERINARY_MEMBERSHIP_REVOKED`) |
+| `VeterinaryServiceUnavailableException` | 503 |
 
 ## Configuración (`application.yml` + `.env`)
 
@@ -293,7 +319,8 @@ Pensados para que otros servicios del ecosistema (p. ej. Veterinary) consulten d
   - `JWT_ACCESS_TTL_MINUTES`: duración del access token en minutos (default `60`, igual que antes de la migración).
   - `JWT_ACCEPT_LEGACY`: si `true` (default), los endpoints propios siguen aceptando tokens HS256 viejos (sin `kid`) además de los nuevos RS256. Poner en `false` una vez pase la ventana de expiración de los tokens emitidos antes del deploy de RS256.
   - `JWT_ISSUER` (default `myanimalog-user-service`) y `JWT_AUDIENCE` (default `myanimalog-api`): claims `iss`/`aud` del contrato compartido. Son constantes del protocolo entre servicios, no deberían cambiar por entorno salvo necesidad real.
-- **`INTERNAL_API_KEY`**: llave compartida para `/internal/**` (header `X-Internal-Api-Key`). **Sin default** (igual que `JWT_SECRET`) — si falta, la app no arranca en absoluto (no solo `/internal/**`), porque es una propiedad `${INTERNAL_API_KEY}` sin fallback en `application.yml`. Debe ser la misma en todos los servicios del ecosistema que la usen (MVP, ver `CONTRATOS_COMPARTIDOS.md` §2); si se rota, hay que actualizarla en todos a la vez.
+- **`INTERNAL_API_KEY`**: llave compartida para `/internal/**` (header `X-Internal-Api-Key`). **Sin default** (igual que `JWT_SECRET`) — si falta, la app no arranca en absoluto (no solo `/internal/**`), porque es una propiedad `${INTERNAL_API_KEY}` sin fallback en `application.yml`. Debe ser la misma en todos los servicios del ecosistema que la usen (MVP, ver `CONTRATOS_COMPARTIDOS.md` §2); si se rota, hay que actualizarla en todos a la vez. Este servicio también la **usa como cliente** al llamar a Veterinary (`VeterinaryClientConfig`), con el mismo valor.
+- **`VETERINARY_SERVICE_URL`**: base URL de Veterinary para resolver membresías de clínica (`VeterinaryMembershipAdapter`). **Tiene default `http://localhost:8082` solo para desarrollo** (igual que `FRONTEND_URL`); en Cloud Run (o cualquier entorno real) hay que configurarla explícitamente con la URL del `veterinary-service` desplegado — el default de localhost nunca debe quedar vigente fuera de un entorno local.
 - **Frontend**: `FRONTEND_URL` (default `http://localhost:8100`), usado en el enlace de reset-password.
 - **Supabase Storage**: `SUPABASE_URL`, `SUPABASE_KEY`.
 - **GCP Pub/Sub**: `GCP_PROJECT_ID`, `pubsub.enabled=true`.
@@ -323,9 +350,12 @@ Pensados para que otros servicios del ecosistema (p. ej. Veterinary) consulten d
 - `RefreshTokenServiceTest`: `issue()` solo persiste el hash (nunca el valor plano); `rotate()` revoca el token usado y emite uno nuevo; reutilizar un token ya revocado revoca toda la cadena del usuario; token expirado o desconocido se rechaza sin tocar otras sesiones; `revoke()` es best-effort (no falla con tokens en blanco o inexistentes).
 - `InternalApiKeyFilterTest`: sin header → 401; header con llave incorrecta → 401; llave correcta → deja pasar; rutas fuera de `/internal/**` no se tocan aunque no traigan el header.
 - `InternalUserControllerTest`: mapea `username→fullName` y `phone=null`; nunca expone el password/hash en la respuesta; 404 por id inexistente o malformado; 400 si el batch pide más de 100 ids.
+- `VeterinaryMembershipAdapterTest` (con `MockRestServiceServer`, bindeado a `RestClient.Builder`): mapea un 200 a `VeterinaryMembership` (incluyendo `member=false`); un 5xx y un 401 se traducen ambos a `VeterinaryServiceUnavailableException`.
+- `AuthControllerTest` (ampliado para USER-03/04/05): miembro activo → token con `ctx=VETERINARY` y los 5 claims `vet_*` más todos los del token base; clínica `SUSPENDED` también emite token (solo `REJECTED` bloquea); no-miembro/inactivo → `NotVeterinaryMemberException`; clínica rechazada → `VeterinaryRejectedException`; Veterinary caído → `VeterinaryServiceUnavailableException`; refresh de contexto clínica activo rota con rol/estado actualizados y **no** revoca nada; refresh tras desactivar al empleado → revoca el refresh y lanza `VeterinaryMembershipRevokedException`; refresh de contexto `USER` nunca llama a `VeterinaryMembershipPort`; `/auth/context/user` emite `ctx=USER`; ambos endpoints de contexto revocan el refresh anterior cuando viene en el body.
+- `RefreshTokenServiceTest` (ampliado): `issueVeterinaryContext()` persiste `context=VETERINARY` + `veterinaryId`; `validate()` no rota; `rotate(RefreshToken)`/`revoke(RefreshToken)` operan sobre un token ya resuelto sin volver a buscarlo.
 - El resto: `LogoutService` (la más exhaustiva, blacklist de Redis y manejo de excepciones JWT, incluyendo mensajes específicos por tipo de error), `GoogleTokenVerifierService`, `RegisterService`/`RegisterUserUseCaseImpl`, `RequestPasswordResetService`/`ResetPasswordService`, `GetProfileUseCaseImpl`, `GoogleAuthUseCaseImpl`, `UpdateUserProfileUseCaseImpl`, `UserRepositoryAdapter`, controllers (`GetProfileController`, `RegisterController`, `UpdateProfileController`), `EmailServiceAdapter`, y smoke test de arranque del contexto (`PetsApplicationTests`).
 
-**Sin cobertura**: `JwtAuthenticationFilter` (como filtro HTTP end-to-end), `SecurityConfig`, `EmailVerificationService`, subida/borrado de imágenes de perfil, `SupabaseStorageAdapter`, `GooglePubSubAuthEventAdapter`.
+**Sin cobertura**: `JwtAuthenticationFilter`/`SecurityConfig` como filtro HTTP end-to-end (p. ej. "sin token → 401" en `/auth/context/**`, o que `/auth/local`/`/auth/google`/`/auth/refresh` sigan sin exigir token) — los tests de `AuthController` llaman al método Java directamente, así que no ejercitan la cadena de filtros de Spring Security; esa garantía la da el framework (`authorizeHttpRequests`), verificada manualmente con llamadas HTTP reales en vez de con un test unitario. Tampoco hay cobertura de `EmailVerificationService`, subida/borrado de imágenes de perfil, `SupabaseStorageAdapter`, `GooglePubSubAuthEventAdapter`.
 
 ⚠️ `PetsApplicationTests.contextLoads` puede fallar en entornos sin conectividad/credenciales válidas hacia el Postgres de Supabase (`FATAL: password authentication failed`) — es un problema de entorno/credenciales, no de código; verificar `DB_PASSWORD` y acceso de red antes de asumir una regresión.
 
@@ -339,7 +369,10 @@ Pensados para que otros servicios del ecosistema (p. ej. Veterinary) consulten d
 6. El `.env` local contiene credenciales reales (Supabase, Gmail, Google OAuth, JWT secret, Redis) — confirmar que esté en `.gitignore` y nunca commitearlo.
 7. **El gate de "falla si falta `JWT_PRIVATE_KEY_PEM` fuera de `dev`" no protege nada todavía en la práctica**: como este servicio no fija `SPRING_PROFILES_ACTIVE` en ningún entorno hoy, "sin perfil activo" se trata como `dev` (para no romper el arranque actual) y generaría una llave efímera en vez de fallar. Cualquier despliegue real debe fijar un perfil explícito (p. ej. `SPRING_PROFILES_ACTIVE=prod`) además de `JWT_PRIVATE_KEY_PEM`.
 8. ~~USER-06 (endpoints `/internal/**`)~~ — **resuelto**: implementado y protegido con `X-Internal-Api-Key`. Pendiente real: la tabla `users` sigue sin columnas `full_name` ni `phone` reales — hoy `fullName = username` y `phone = null` siempre, por decisión explícita documentada (ver sección de endpoints internos). Cuando se agreguen esas columnas, hay que actualizar `InternalUserController` para dejar de usar el `username` como sustituto.
-9. ~~Claims pendientes del contrato compartido~~ — **resuelto**: `iss`, `aud`, `jti`, `platform_role`, `ctx`, `email_verified` ya se emiten en el JWT y `validateToken()` ya exige `iss`/`aud` correctos en tokens nuevos (USER-02). Pendiente real: token de contexto de clínica (`ctx=VETERINARY`, USER-03) — fuera de alcance por ahora.
+9. ~~Claims pendientes del contrato compartido~~ — **resuelto**: `iss`, `aud`, `jti`, `platform_role`, `ctx`, `email_verified` ya se emiten en el JWT y `validateToken()` ya exige `iss`/`aud` correctos en tokens nuevos (USER-02).
 10. **`JWT_ACCEPT_LEGACY=true` es temporal**: hay un TODO explícito en `JwtSigningKeyResolver`/`JwtUtil` para quitar la aceptación de tokens HS256 sin `kid` una vez pase la ventana de expiración de los tokens emitidos antes de esta migración.
 11. **RLS en Supabase**: `public.users` y `public.password_reset_tokens` tenían Row Level Security desactivado (quedaban expuestas por la API REST de Supabase) — corregido en `003_enable_rls.sql`. Toda tabla nueva en `public` debe crearse con RLS activado desde el inicio (ver `db/scripts/README.md`).
-12. **`INTERNAL_API_KEY` es un secreto compartido sin rotación automática**: si se filtra o se rota, hay que actualizarla a mano en todos los servicios que llamen a `/internal/**`. No hay múltiples llaves vigentes simultáneamente (a diferencia del `kid` del JWT, que sí soporta rotación con dos llaves activas).
+12. **`INTERNAL_API_KEY` es un secreto compartido sin rotación automática**: si se filtra o se rota, hay que actualizarla a mano en todos los servicios que llamen a `/internal/**` (incluido este servicio como cliente de Veterinary). No hay múltiples llaves vigentes simultáneamente (a diferencia del `kid` del JWT, que sí soporta rotación con dos llaves activas).
+13. ~~Token de contexto de clínica (USER-03/04/05)~~ — **resuelto**: `POST /auth/context/veterinary/{id}`, `POST /auth/context/user`, y el refresh de contexto clínica que re-valida membresía (USER-04) ya están implementados. Pendiente real: el catálogo completo de permisos por rol (`CONTRATOS_COMPARTIDOS.md` §3, matriz rol→permiso) vive enteramente en Veterinary — este servicio solo emite el token con `vet_role`/`vet_licensed`/`vet_status`, no interpreta esos permisos.
+14. **`VeterinaryMembershipAdapter` no tiene test de timeout real**: `VeterinaryMembershipAdapterTest` cubre el mapeo de 200/401/5xx con `MockRestServiceServer`, pero no simula un timeout de socket real (`ResourceAccessException`) — la lógica de ese branch es simple (log + wrap) y se consideró bajo riesgo, pero quedó sin test dedicado.
+15. **Ningún endpoint fuerza `vet_licensed=true` para acciones clínicas**: el claim viaja en el JWT, pero el catálogo de permisos (incluyendo el gate `🔑 licensed` de `CLINICAL_WRITE`/`NURSING_WRITE`) lo aplica Veterinary vía `GET /internal/veterinaries/{id}/patients/{petId}/access`, no este servicio.
