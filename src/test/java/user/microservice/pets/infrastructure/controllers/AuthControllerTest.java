@@ -23,6 +23,7 @@ import user.microservice.pets.domain.exceptions.NotVeterinaryMemberException;
 import user.microservice.pets.domain.exceptions.VeterinaryMembershipRevokedException;
 import user.microservice.pets.domain.exceptions.VeterinaryRejectedException;
 import user.microservice.pets.domain.exceptions.VeterinaryServiceUnavailableException;
+import user.microservice.pets.domain.exceptions.VeterinarySuspendedException;
 import user.microservice.pets.domain.model.RefreshToken;
 import user.microservice.pets.domain.model.User;
 import user.microservice.pets.domain.model.VeterinaryMembership;
@@ -315,15 +316,50 @@ class AuthControllerTest {
     }
 
     @Test
-    @DisplayName("context/veterinary should issue a token for a SUSPENDED clinic too (only REJECTED is blocked)")
-    void getVeterinaryContextTokenSuspendedClinicShouldStillSucceed() {
+    @DisplayName("context/veterinary should reject a SUSPENDED clinic with VETERINARY_SUSPENDED")
+    void getVeterinaryContextTokenSuspendedClinicShouldFail() {
+        UUID userId = UUID.randomUUID();
+        UUID veterinaryId = UUID.randomUUID();
+        Authentication authentication = authenticationFor(userId);
+
+        VeterinaryMembership membership =
+                new VeterinaryMembership(true, UUID.randomUUID(), "ADMIN", true, true, "SUSPENDED", "ACTIVE");
+
+        when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(buildUser(userId)));
+        when(veterinaryMembershipPort.getMembership(veterinaryId, userId)).thenReturn(membership);
+
+        assertThatThrownBy(() -> authController.getVeterinaryContextToken(veterinaryId, authentication, null))
+                .isInstanceOf(VeterinarySuspendedException.class);
+
+        verify(refreshTokenService, never()).issueVeterinaryContext(any(), any());
+    }
+
+    @Test
+    @DisplayName("context/veterinary should issue a token for a PENDING_DOCUMENTS clinic")
+    void getVeterinaryContextTokenPendingDocumentsShouldSucceed() {
+        assertVeterinaryContextTokenIssuedForStatus("PENDING_DOCUMENTS");
+    }
+
+    @Test
+    @DisplayName("context/veterinary should issue a token for an UNDER_REVIEW clinic")
+    void getVeterinaryContextTokenUnderReviewShouldSucceed() {
+        assertVeterinaryContextTokenIssuedForStatus("UNDER_REVIEW");
+    }
+
+    @Test
+    @DisplayName("context/veterinary should issue a token for a NEEDS_CORRECTION clinic")
+    void getVeterinaryContextTokenNeedsCorrectionShouldSucceed() {
+        assertVeterinaryContextTokenIssuedForStatus("NEEDS_CORRECTION");
+    }
+
+    private void assertVeterinaryContextTokenIssuedForStatus(String status) {
         UUID userId = UUID.randomUUID();
         UUID veterinaryId = UUID.randomUUID();
         User user = buildUser(userId);
         Authentication authentication = authenticationFor(userId);
 
         VeterinaryMembership membership =
-                new VeterinaryMembership(true, UUID.randomUUID(), "ADMIN", true, true, "SUSPENDED", "ACTIVE");
+                new VeterinaryMembership(true, UUID.randomUUID(), "OWNER", true, true, status, null);
 
         when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(user));
         when(veterinaryMembershipPort.getMembership(veterinaryId, userId)).thenReturn(membership);
@@ -335,7 +371,7 @@ class AuthControllerTest {
                 authController.getVeterinaryContextToken(veterinaryId, authentication, null);
 
         assertThat(response.getStatusCode().is2xxSuccessful()).isTrue();
-        assertThat(capturedClaims()).containsEntry("vet_status", "SUSPENDED");
+        assertThat(capturedClaims()).containsEntry("vet_status", status);
     }
 
     @Test

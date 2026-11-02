@@ -134,8 +134,8 @@ Permite a un usuario que es empleado de una clínica Veterinary obtener un JWT c
 
 - **`POST /auth/context/veterinary/{veterinaryId}`** (requiere JWT de usuario válido — `ctx` puede ser `USER` o `VETERINARY`, cualquier token no revocado sirve; body opcional `{"refreshToken": "..."}` con el refresh del contexto anterior, que se revoca si viene):
   1. Consulta la membresía con el `id` del usuario del token (principal).
-  2. `member=false` o `active=false` → 403 `NOT_A_VETERINARY_MEMBER` (`NotVeterinaryMemberException`).
-  3. `veterinaryStatus=REJECTED` → 403 `VETERINARY_REJECTED` (`VeterinaryRejectedException`). Cualquier otro estado (`ACTIVE`, `SUSPENDED`, `PENDING_DOCUMENTS`, etc.) sí recibe el token — los permisos reales los limita Veterinary, no este servicio.
+  2. `member=false` o `active=false` → 403 `NOT_A_VETERINARY_MEMBER` (`NotVeterinaryMemberException`). Un empleado retirado (`active=false`) nunca recibe token de clínica.
+  3. `veterinaryStatus=REJECTED` → 403 `VETERINARY_REJECTED` (`VeterinaryRejectedException`). `veterinaryStatus=SUSPENDED` → 403 `VETERINARY_SUSPENDED` (`VeterinarySuspendedException`). Los estados de verificación (`PENDING_DOCUMENTS`, `UNDER_REVIEW`, `NEEDS_CORRECTION`) sí reciben el token — el dueño lo necesita para completar/corregir la verificación de la clínica. `ACTIVE` es el caso normal. Los permisos reales los limita Veterinary, no este servicio.
   4. Veterinary caído/timeout/5xx → 503 (`VeterinaryServiceUnavailableException`), **nunca se emite un token sin confirmar la membresía**.
   5. Emite un access token con **todos** los claims del token base (`id`, `email`, `username`, `provider`, `platform_role`, `email_verified`) más `ctx="VETERINARY"`, `vet_id`, `vet_role`, `employee_id`, `vet_licensed`, `vet_status`.
   6. Emite un refresh token nuevo con `context=VETERINARY` y `veterinary_id`.
@@ -302,6 +302,7 @@ Pensados para que otros servicios del ecosistema (p. ej. Veterinary) consulten d
 | `Exception` genérica | 500 (mensaje genérico) |
 | `NotVeterinaryMemberException` | 403 (`code: NOT_A_VETERINARY_MEMBER`) |
 | `VeterinaryRejectedException` | 403 (`code: VETERINARY_REJECTED`) |
+| `VeterinarySuspendedException` | 403 (`code: VETERINARY_SUSPENDED`) |
 | `VeterinaryMembershipRevokedException` | 401 (`code: VETERINARY_MEMBERSHIP_REVOKED`) |
 | `VeterinaryServiceUnavailableException` | 503 |
 

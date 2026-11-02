@@ -20,6 +20,7 @@ import user.microservice.pets.domain.exceptions.InvalidTokenException;
 import user.microservice.pets.domain.exceptions.NotVeterinaryMemberException;
 import user.microservice.pets.domain.exceptions.VeterinaryMembershipRevokedException;
 import user.microservice.pets.domain.exceptions.VeterinaryRejectedException;
+import user.microservice.pets.domain.exceptions.VeterinarySuspendedException;
 import user.microservice.pets.domain.model.RefreshToken;
 import user.microservice.pets.domain.model.User;
 import user.microservice.pets.domain.model.VeterinaryMembership;
@@ -43,6 +44,7 @@ import java.util.UUID;
 public class AuthController {
 
     private static final String VETERINARY_STATUS_REJECTED = "REJECTED";
+    private static final String VETERINARY_STATUS_SUSPENDED = "SUSPENDED";
 
     private final GoogleAuthUseCase googleAuthUseCase;
     private final JwtUtil jwtUtil;
@@ -186,6 +188,9 @@ public class AuthController {
         }
         if (VETERINARY_STATUS_REJECTED.equals(membership.veterinaryStatus())) {
             throw new VeterinaryRejectedException();
+        }
+        if (VETERINARY_STATUS_SUSPENDED.equals(membership.veterinaryStatus())) {
+            throw new VeterinarySuspendedException();
         }
     }
 

@@ -216,6 +216,15 @@ public class GlobalExceptionHandler {
                 "status", 403));
     }
 
+    @ExceptionHandler(VeterinarySuspendedException.class)
+    public ResponseEntity<Map<String, Object>> handleVeterinarySuspended(VeterinarySuspendedException ex) {
+        log.warn("Veterinary context denied - clinic suspended: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                "error", ex.getMessage(),
+                "code", "VETERINARY_SUSPENDED",
+                "status", 403));
+    }
+
     @ExceptionHandler(VeterinaryMembershipRevokedException.class)
     public ResponseEntity<Map<String, Object>> handleVeterinaryMembershipRevoked(VeterinaryMembershipRevokedException ex) {
         log.warn("Veterinary refresh denied - membership revoked: {}", ex.getMessage());
