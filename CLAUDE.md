@@ -60,7 +60,9 @@ El dominio (`domain/model/User.java`) es un POJO sin anotaciones JPA; la entidad
 | Campo | Tipo | Notas |
 |---|---|---|
 | `id` | UUID | generado en código, no autogenerado por la BD |
-| `username` | String | |
+| `username` | String | único, sin espacios (`^[a-zA-Z0-9_]+$`), 3-50 chars. Sigue siendo el identificador único. |
+| `full_name` | String | nullable, NO único, 2-100 chars. Nombre para mostrar (separado del username desde `005_full_name_and_phone.sql`). `fullName` en las respuestas cae al `username` cuando es `null`. |
+| `phone` | String | nullable, NO único, guardado en formato E.164 (`CHECK` en BD, ver `005_full_name_and_phone.sql`). Normalizado con libphonenumber (región default `CO`). Nunca viaja en el JWT ni en logs. |
 | `email` | String | único, not null |
 | `password` | String | nullable (cuentas de Google no tienen password) |
 | `profileImageUrl` | String | URL en Supabase Storage |
@@ -200,7 +202,7 @@ Pensados para que otros servicios del ecosistema (p. ej. Veterinary) consulten d
   - `GET /{id}` → `{id, fullName, email, phone, emailVerified}` o 404 (`UserNotFoundException`) si no existe o el `id` no es un UUID válido.
   - `POST /batch` con body `{"ids": [...]}` (máx. 100 — si no, 400 `InvalidUserDataException`) → lista con el mismo formato; los ids que no existan simplemente no aparecen en la respuesta.
   - `GET /by-email?email=` → el usuario o 404.
-- **`fullName = username` y `phone = null` por ahora**: la tabla `users` todavía no tiene columnas `full_name`/`phone` reales (ver deuda técnica). **Nunca** se devuelve `password`, hashes, ni ningún dato de autenticación.
+- `fullName` devuelve `full_name` con fallback al `username` si es `null`; `phone` devuelve el valor real (E.164) o `null`. **Nunca** se devuelve `password`, hashes, ni ningún dato de autenticación.
 
 ## Endpoints REST
 
@@ -369,7 +371,7 @@ Pensados para que otros servicios del ecosistema (p. ej. Veterinary) consulten d
 5. Logging con `DEBUG`/`TRACE` de SQL y bind params habilitado — revisar antes de pasar a producción (riesgo de fuga de datos sensibles, p. ej. hashes de password en logs).
 6. El `.env` local contiene credenciales reales (Supabase, Gmail, Google OAuth, JWT secret, Redis) — confirmar que esté en `.gitignore` y nunca commitearlo.
 7. **El gate de "falla si falta `JWT_PRIVATE_KEY_PEM` fuera de `dev`" no protege nada todavía en la práctica**: como este servicio no fija `SPRING_PROFILES_ACTIVE` en ningún entorno hoy, "sin perfil activo" se trata como `dev` (para no romper el arranque actual) y generaría una llave efímera en vez de fallar. Cualquier despliegue real debe fijar un perfil explícito (p. ej. `SPRING_PROFILES_ACTIVE=prod`) además de `JWT_PRIVATE_KEY_PEM`.
-8. ~~USER-06 (endpoints `/internal/**`)~~ — **resuelto**: implementado y protegido con `X-Internal-Api-Key`. Pendiente real: la tabla `users` sigue sin columnas `full_name` ni `phone` reales — hoy `fullName = username` y `phone = null` siempre, por decisión explícita documentada (ver sección de endpoints internos). Cuando se agreguen esas columnas, hay que actualizar `InternalUserController` para dejar de usar el `username` como sustituto.
+8. ~~USER-06 (endpoints `/internal/**`)~~ — **resuelto**: implementado y protegido con `X-Internal-Api-Key`. ~~La tabla `users` sigue sin columnas `full_name` ni `phone` reales~~ — **resuelto** (`005_full_name_and_phone.sql`): `InternalUserController` ya devuelve `fullName`/`phone` reales (con fallback al `username`), ver `docs/NOMBRE_Y_TELEFONO.md`.
 9. ~~Claims pendientes del contrato compartido~~ — **resuelto**: `iss`, `aud`, `jti`, `platform_role`, `ctx`, `email_verified` ya se emiten en el JWT y `validateToken()` ya exige `iss`/`aud` correctos en tokens nuevos (USER-02).
 10. **`JWT_ACCEPT_LEGACY=true` es temporal**: hay un TODO explícito en `JwtSigningKeyResolver`/`JwtUtil` para quitar la aceptación de tokens HS256 sin `kid` una vez pase la ventana de expiración de los tokens emitidos antes de esta migración.
 11. **RLS en Supabase**: `public.users` y `public.password_reset_tokens` tenían Row Level Security desactivado (quedaban expuestas por la API REST de Supabase) — corregido en `003_enable_rls.sql`. Toda tabla nueva en `public` debe crearse con RLS activado desde el inicio (ver `db/scripts/README.md`).
