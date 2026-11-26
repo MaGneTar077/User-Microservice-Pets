@@ -343,6 +343,10 @@ Pensados para que otros servicios del ecosistema (p. ej. Veterinary) consulten d
 - `.dockerignore` excluye `.env`, `target/`, `.git/`, etc.
 - No hay `docker-compose.yml`: el desarrollo local depende de servicios cloud reales (Supabase, Upstash, GCP), no de contenedores locales de Postgres/Redis.
 
+## Postman
+
+`postman/` tiene la colección completa (generada desde los controladores reales, no desde esta documentación) con environments Local y Cloud Run. Ver `postman/README.md` para importar, variables a llenar y cómo regenerar (`build-collection.js`) y verificar cobertura (`check-coverage.js`).
+
 ## Testing
 
 ~22 clases de test (JUnit 5 + Mockito + AssertJ), incluyendo las nuevas de USER-01:

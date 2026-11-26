@@ -1,0 +1,1106 @@
+{
+  "info": {
+    "_postman_id": "myanimalog-user-service-collection",
+    "name": "MyAnimaLog User Service",
+    "description": "Coleccion generada con postman/build-collection.js — NO editar el .json a mano, editar este script y regenerar.\n\nOrden recomendado: 00 (login/registro) -> 01 (registro) -> 02/03 (si aplica) -> 04 (perfil) -> 05 (contexto de clinica, requiere veterinaryId real) -> 06 (internos, requiere internal_api_key).\n\nToken por carpeta: 00-03 sin auth (publicas); 04-05 Bearer {{access_token}} (05 tambien acepta {{clinic_token}}); 06 header X-Internal-Api-Key, sin Bearer.\n\nVer postman/README.md para detalle de variables y como regenerar/verificar esta coleccion.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "00 · Autenticación",
+      "item": [
+        {
+          "name": "POST Iniciar sesión",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{user_url}}/auth/local",
+              "host": [
+                "{{user_url}}"
+              ],
+              "path": [
+                "auth",
+                "local"
+              ]
+            },
+            "description": "Login local. Publico (sin token). Responde `{token, refreshToken, expiresIn}`.\n\nErrores: 401 credenciales invalidas, 403 `EMAIL_NOT_VERIFIED`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"luis.santiago@example.com\",\n  \"password\": \"Secreta123!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "function decodeJwtId(token) {",
+                  "    try {",
+                  "        const payload = JSON.parse(atob(token.split('.')[1]));",
+                  "        return payload.id;",
+                  "    } catch (e) { return undefined; }",
+                  "}",
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.environment.set('access_token', body.token);",
+                  "pm.environment.set('refresh_token', body.refreshToken);",
+                  "const id = decodeJwtId(body.token);",
+                  "if (id) pm.environment.set('user_id', id);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {},
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"token\": \"<jwt>\",\n  \"refreshToken\": \"<refresh-token>\",\n  \"expiresIn\": 3600\n}"
+            }
+          ]
+        },
+        {
+          "name": "POST Iniciar sesión con Google",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{user_url}}/auth/google",
+              "host": [
+                "{{user_url}}"
+              ],
+              "path": [
+                "auth",
+                "google"
+              ]
+            },
+            "description": "Login/registro automatico via ID Token de Google. Publico. Responde `{token, refreshToken, expiresIn}`.\n\nErrores: 401 `InvalidTokenException` si el idToken es invalido o falta.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idToken\": \"<id-token-de-google>\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "function decodeJwtId(token) {",
+                  "    try {",
+                  "        const payload = JSON.parse(atob(token.split('.')[1]));",
+                  "        return payload.id;",
+                  "    } catch (e) { return undefined; }",
+                  "}",
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.environment.set('access_token', body.token);",
+                  "pm.environment.set('refresh_token', body.refreshToken);",
+                  "const id = decodeJwtId(body.token);",
+                  "if (id) pm.environment.set('user_id', id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST Refrescar token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{user_url}}/auth/refresh",
+              "host": [
+                "{{user_url}}"
+              ],
+              "path": [
+                "auth",
+                "refresh"
+              ]
+            },
+            "description": "Rota el refresh token y emite un access token nuevo (revalida membresia si era de contexto clinica). Publico (valida el refresh token, no un JWT).\n\nErrores: 401 token invalido/expirado/reutilizado, 401 `VETERINARY_MEMBERSHIP_REVOKED`, 503 si Veterinary no responde.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refresh_token}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.environment.set('access_token', body.token);",
+                  "pm.environment.set('refresh_token', body.refreshToken);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST Cerrar sesión",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{user_url}}/auth/logout",
+              "host": [
+                "{{user_url}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Invalida el access token actual (blacklist en Redis). Si el body trae `refreshToken`, tambien lo revoca. Requiere `Authorization: Bearer` (override de carpeta, que es No Auth).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refresh_token}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET Llave pública (JWKS)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{user_url}}/.well-known/jwks.json",
+              "host": [
+                "{{user_url}}"
+              ],
+              "path": [
+                ".well-known",
+                "jwks.json"
+              ]
+            },
+            "description": "Publica la llave publica RSA activa (JWKS) para validar los JWT. Publico, sin JWT."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "auth": {
+        "type": "noauth"
+      }
+    },
+    {
+      "name": "01 · Registro",
+      "item": [
+        {
+          "name": "POST Registrar usuario",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{user_url}}/user/register",
+              "host": [
+                "{{user_url}}"
+              ],
+              "path": [
+                "user",
+                "register"
+              ]
+            },
+            "description": "Registro de usuario local + envio de codigo de verificacion. Publico. `fullName` y `phone` son opcionales (ver docs/NOMBRE_Y_TELEFONO.md). `phone` se normaliza a E.164.\n\nErrores: 409 email/username ya existen, 400 datos invalidos (incluye `INVALID_PHONE`).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"luis_santiago_{{$timestamp}}\",\n  \"email\": \"luis.santiago.{{$timestamp}}@example.com\",\n  \"password\": \"Secreta123!\",\n  \"fullName\": \"Luis Santiago\",\n  \"phone\": \"3001234567\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.environment.set('user_id', body.uuid);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {},
+              "status": "Created",
+              "code": 201,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"uuid\": \"a1b2c3d4-...\",\n  \"username\": \"luis_santiago_1234\",\n  \"fullName\": \"Luis Santiago\",\n  \"phone\": \"+573001234567\",\n  \"email\": \"luis.santiago.1234@example.com\",\n  \"createdAt\": \"2026-11-26T10:00:00\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "POST Registrar usuario - username con espacios (error esperado)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{user_url}}/user/register",
+              "host": [
+                "{{user_url}}"
+              ],
+              "path": [
+                "user",
+                "register"
+              ]
+            },
+            "description": "El username sigue sin admitir espacios (regla sin cambios). Espera 400 con el mapa de errores de campo (`username`).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"Luis Santiago\",\n  \"email\": \"error.username.{{$timestamp}}@example.com\",\n  \"password\": \"Secreta123!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Error de username', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(JSON.stringify(body)).to.include('username');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST Registrar usuario - fullName con < > (error esperado)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{user_url}}/user/register",
+              "host": [
+                "{{user_url}}"
+              ],
+              "path": [
+                "user",
+                "register"
+              ]
+            },
+            "description": "`fullName` rechaza `<` y `>` (FullNamePolicy). Espera 400 (`InvalidUserDataException`).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"usuario_{{$timestamp}}\",\n  \"email\": \"error.fullname.{{$timestamp}}@example.com\",\n  \"password\": \"Secreta123!\",\n  \"fullName\": \"Luis <script>\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST Registrar usuario - phone inválido (error esperado)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{user_url}}/user/register",
+              "host": [
+                "{{user_url}}"
+              ],
+              "path": [
+                "user",
+                "register"
+              ]
+            },
+            "description": "`phone` invalido (PhoneNumberPolicy + libphonenumber). Espera 400 con `code: INVALID_PHONE`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"usuario_{{$timestamp}}\",\n  \"email\": \"error.phone.{{$timestamp}}@example.com\",\n  \"password\": \"Secreta123!\",\n  \"phone\": \"not-a-phone\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('code INVALID_PHONE', () => {",
+                  "    pm.expect(pm.response.json().code).to.eql('INVALID_PHONE');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "400 INVALID_PHONE",
+              "originalRequest": {},
+              "status": "Error",
+              "code": 400,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"error\": \"Invalid phone number\",\n  \"code\": \"INVALID_PHONE\",\n  \"status\": 400\n}"
+            }
+          ]
+        }
+      ],
+      "auth": {
+        "type": "noauth"
+      }
+    },
+    {
+      "name": "02 · Verificación de email",
+      "item": [
+        {
+          "name": "POST Verificar código",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{user_url}}/auth/verify-email",
+              "host": [
+                "{{user_url}}"
+              ],
+              "path": [
+                "auth",
+                "verify-email"
+              ]
+            },
+            "description": "Verifica el codigo de 6 digitos enviado al registrarse. Publico.\n\nErrores: 400 codigo invalido/expirado.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"luis.santiago@example.com\",\n  \"code\": \"123456\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST Reenviar código",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{user_url}}/auth/resend-verification",
+              "host": [
+                "{{user_url}}"
+              ],
+              "path": [
+                "auth",
+                "resend-verification"
+              ]
+            },
+            "description": "Reenvia el codigo de verificacion (respeta cooldown de 60s). Publico, mensaje siempre generico.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"luis.santiago@example.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "auth": {
+        "type": "noauth"
+      }
+    },
+    {
+      "name": "03 · Recuperación de contraseña",
+      "item": [
+        {
+          "name": "POST Solicitar recuperación de contraseña",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{user_url}}/auth/request-password-reset",
+              "host": [
+                "{{user_url}}"
+              ],
+              "path": [
+                "auth",
+                "request-password-reset"
+              ]
+            },
+            "description": "Envia el enlace de reseteo si la cuenta existe y es local. Publico, mensaje siempre generico (anti enumeration).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"luis.santiago@example.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST Restablecer contraseña",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{user_url}}/auth/reset-password",
+              "host": [
+                "{{user_url}}"
+              ],
+              "path": [
+                "auth",
+                "reset-password"
+              ]
+            },
+            "description": "Aplica la nueva contrasena con el token recibido por correo. Publico.\n\nErrores: 400 token invalido/expirado o igual a la actual.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"<token-del-correo>\",\n  \"newPassword\": \"NuevaSecreta123!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "auth": {
+        "type": "noauth"
+      }
+    },
+    {
+      "name": "04 · Perfil",
+      "item": [
+        {
+          "name": "GET Obtener perfil",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{user_url}}/user/profile/{{user_id}}",
+              "host": [
+                "{{user_url}}"
+              ],
+              "path": [
+                "user",
+                "profile",
+                "{{user_id}}"
+              ]
+            },
+            "description": "Obtiene el perfil propio (solo si `{id}` == usuario autenticado). `fullName` cae al `username` si no hay nombre guardado.\n\nErrores: 403 si se intenta ver el perfil de otro usuario."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PUT Actualizar perfil",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{user_url}}/user/{{user_id}}",
+              "host": [
+                "{{user_url}}"
+              ],
+              "path": [
+                "user",
+                "{{user_id}}"
+              ]
+            },
+            "description": "Actualiza username (obligatorio), fullName y phone (opcionales e independientes; omitidos = no se tocan, vacios = se borran) del propio usuario.\n\nErrores: 409 username ya existe, 400 datos invalidos (incluye `INVALID_PHONE`), 403 si no es el propio usuario.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"luis_santiago\",\n  \"fullName\": \"Luis Santiago Gómez\",\n  \"phone\": \"3001234567\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST Subir foto de perfil",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{user_url}}/user/profile/image",
+              "host": [
+                "{{user_url}}"
+              ],
+              "path": [
+                "user",
+                "profile",
+                "image"
+              ]
+            },
+            "description": "Sube/reemplaza la foto de perfil (multipart, campo `file`, max 5MB, image/jpeg|jpg|png|webp).",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DELETE Eliminar foto de perfil",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{user_url}}/user/profile/image",
+              "host": [
+                "{{user_url}}"
+              ],
+              "path": [
+                "user",
+                "profile",
+                "image"
+              ]
+            },
+            "description": "Elimina la foto de perfil actual del usuario autenticado."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{access_token}}",
+            "type": "string"
+          }
+        ]
+      }
+    },
+    {
+      "name": "05 · Contexto de clínica",
+      "item": [
+        {
+          "name": "POST Obtener token de clínica",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{user_url}}/auth/context/veterinary/{{veterinaryId}}",
+              "host": [
+                "{{user_url}}"
+              ],
+              "path": [
+                "auth",
+                "context",
+                "veterinary",
+                "{{veterinaryId}}"
+              ]
+            },
+            "description": "Emite un token de contexto de clinica si el usuario es empleado activo. Requiere JWT de usuario.\n\nErrores: 403 `NOT_A_VETERINARY_MEMBER`, 403 `VETERINARY_REJECTED`, 403 `VETERINARY_SUSPENDED`, 503 si Veterinary no responde.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{clinic_token}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.environment.set('clinic_token', body.token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST Volver a token de usuario",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{user_url}}/auth/context/user",
+              "host": [
+                "{{user_url}}"
+              ],
+              "path": [
+                "auth",
+                "context",
+                "user"
+              ]
+            },
+            "description": "Vuelve a un token normal (`ctx=USER`), revocando el refresh de clinica anterior si viene en el body.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{clinic_token}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.environment.set('access_token', body.token);",
+                  "pm.environment.set('refresh_token', body.refreshToken);",
+                  "pm.environment.set('clinic_token', '');"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{access_token}}",
+            "type": "string"
+          }
+        ]
+      }
+    },
+    {
+      "name": "06 · Internos",
+      "item": [
+        {
+          "name": "GET Obtener usuario interno por id",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Internal-Api-Key",
+                "value": "{{internal_api_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{user_url}}/internal/users/{{user_id}}",
+              "host": [
+                "{{user_url}}"
+              ],
+              "path": [
+                "internal",
+                "users",
+                "{{user_id}}"
+              ]
+            },
+            "description": "Usado por otros servicios del ecosistema (ej. Veterinary). Nunca expuesto por el gateway, solo servicio a servicio.\n\nErrores: 401 sin llave o llave incorrecta, 404 usuario no encontrado."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST Obtener usuarios internos en lote",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Internal-Api-Key",
+                "value": "{{internal_api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{user_url}}/internal/users/batch",
+              "host": [
+                "{{user_url}}"
+              ],
+              "path": [
+                "internal",
+                "users",
+                "batch"
+              ]
+            },
+            "description": "Maximo 100 ids por llamada. Los ids que no existan simplemente no aparecen en la respuesta.\n\nErrores: 400 si se piden mas de 100 ids.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ids\": [\n    \"{{user_id}}\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET Obtener usuario interno por email",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Internal-Api-Key",
+                "value": "{{internal_api_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{user_url}}/internal/users/by-email?email=luis.santiago@example.com",
+              "host": [
+                "{{user_url}}"
+              ],
+              "path": [
+                "internal",
+                "users",
+                "by-email"
+              ],
+              "query": [
+                {
+                  "key": "email",
+                  "value": "luis.santiago@example.com",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Busca un usuario por email. Protegido solo por `X-Internal-Api-Key`.\n\nErrores: 404 si no existe."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "auth": {
+        "type": "noauth"
+      }
+    }
+  ]
+}
