@@ -15,4 +15,10 @@ public class UpdateUserRequest {
             message = "Username can only contain letters, numbers, and underscores"
     )
     private String username;
+
+    /** Opcional: si viene, reemplaza el fullName actual (null = no tocar). */
+    private String fullName;
+
+    /** Opcional: si viene, reemplaza el phone actual (null = no tocar). */
+    private String phone;
 }

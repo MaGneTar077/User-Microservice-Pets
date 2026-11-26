@@ -74,5 +74,35 @@ class GetProfileControllerTest {
         assertThat(response.getEmail()).isEqualTo(email);
         assertThat(response.getUsername()).isEqualTo("testuser");
         assertThat(response.getAuthProvider()).isEqualTo(AuthProvider.LOCAL);
+        // Sin full_name guardado: fullName cae al username.
+        assertThat(response.getFullName()).isEqualTo("testuser");
+    }
+
+    @Test
+    @DisplayName("Should return fullName and phone when the user has them set")
+    void shouldReturnFullNameAndPhoneWhenPresent() {
+        UUID userId = UUID.randomUUID();
+
+        User authenticatedUser = User.builder()
+                .id(userId)
+                .email("test@example.com")
+                .username("testuser")
+                .fullName("Luis Santiago")
+                .phone("+573001234567")
+                .authProvider(AuthProvider.LOCAL)
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        UsernamePasswordAuthenticationToken authentication =
+                new UsernamePasswordAuthenticationToken(userId.toString(), null, null);
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(authenticatedUser));
+        when(getProfileUseCase.getProfile(userId)).thenReturn(authenticatedUser);
+
+        ProfileResponse response = getProfileController.getProfile(userId.toString()).getBody();
+
+        assertThat(response.getFullName()).isEqualTo("Luis Santiago");
+        assertThat(response.getPhone()).isEqualTo("+573001234567");
     }
 }

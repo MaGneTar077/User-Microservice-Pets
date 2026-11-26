@@ -65,6 +65,8 @@ public class GetProfileController {
         ProfileResponse response = new ProfileResponse(
                 user.getId(),
                 user.getUsername(),
+                user.getDisplayName(),
+                user.getPhone(),
                 user.getEmail(),
                 user.getProfileImageUrl(),
                 user.getCreatedAt(),

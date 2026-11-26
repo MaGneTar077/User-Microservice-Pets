@@ -18,6 +18,8 @@ public class User {
 
     private UUID id;
     private String username;
+    private String fullName;
+    private String phone;
     private String email;
     private String password;
     private String profileImageUrl;
@@ -25,5 +27,10 @@ public class User {
     private LocalDateTime createdAt;
     private AuthProvider authProvider;
     private PlatformRole platformRole;
+
+    /** Nombre para mostrar: fullName si existe, si no el username. */
+    public String getDisplayName() {
+        return (fullName != null && !fullName.isBlank()) ? fullName : username;
+    }
 
 }

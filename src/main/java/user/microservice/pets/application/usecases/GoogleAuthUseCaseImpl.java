@@ -8,6 +8,7 @@ import user.microservice.pets.application.services.GoogleTokenVerifierService;
 import user.microservice.pets.domain.enums.AuthProvider;
 import user.microservice.pets.domain.enums.PlatformRole;
 import user.microservice.pets.domain.model.User;
+import user.microservice.pets.domain.policies.FullNamePolicy;
 import user.microservice.pets.domain.ports.in.GoogleAuthUseCase;
 import user.microservice.pets.domain.ports.out.UserRepositoryPort;
 
@@ -31,6 +32,7 @@ public class GoogleAuthUseCaseImpl implements GoogleAuthUseCase {
         String email = payload.getEmail().trim().toLowerCase(Locale.ROOT);
         String name = (String) payload.get("name");
         String picture = (String) payload.get("picture");
+        String providerFullName = normalizedProviderFullName(name);
 
         Optional<User> existing = userRepositoryPort.findByEmail(email);
 
@@ -44,6 +46,9 @@ public class GoogleAuthUseCaseImpl implements GoogleAuthUseCase {
                 user.setEmailVerified(true);
                 if (user.getProfileImageUrl() == null) {
                     user.setProfileImageUrl(picture);
+                }
+                if (user.getFullName() == null && providerFullName != null) {
+                    user.setFullName(providerFullName);
                 }
                 return userRepositoryPort.save(user);
             }
@@ -66,6 +71,7 @@ public class GoogleAuthUseCaseImpl implements GoogleAuthUseCase {
         return userRepositoryPort.save(User.builder()
                 .id(UUID.randomUUID())
                 .username(username)
+                .fullName(providerFullName)
                 .email(email)
                 .profileImageUrl(picture)
                 .createdAt(LocalDateTime.now())
@@ -73,5 +79,20 @@ public class GoogleAuthUseCaseImpl implements GoogleAuthUseCase {
                 .emailVerified(true)
                 .platformRole(PlatformRole.USER)
                 .build());
+    }
+
+    /** El nombre de Google puede no pasar las reglas de fullName (p. ej. emojis); en ese caso se omite sin fallar el login. */
+    private String normalizedProviderFullName(String rawName) {
+        String normalized = FullNamePolicy.normalize(rawName);
+        if (normalized == null) {
+            return null;
+        }
+        try {
+            FullNamePolicy.validate(normalized);
+            return normalized;
+        } catch (RuntimeException e) {
+            log.warn("Google name '{}' does not match fullName policy, leaving fullName empty", rawName);
+            return null;
+        }
     }
 }

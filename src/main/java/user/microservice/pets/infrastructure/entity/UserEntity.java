@@ -21,6 +21,12 @@ public class UserEntity {
     private UUID id;
     private String username;
 
+    @Column(name = "full_name", length = 100)
+    private String fullName;
+
+    @Column(name = "phone", length = 20)
+    private String phone;
+
     @Column(unique = true, nullable = false)
     private String email;
     private String password;

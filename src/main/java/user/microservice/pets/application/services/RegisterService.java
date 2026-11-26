@@ -16,6 +16,8 @@ public class RegisterService {
     public RegisterResponse register(RegisterRequest request){
         User newUser = new User();
         newUser.setUsername(request.getUsername());
+        newUser.setFullName(request.getFullName());
+        newUser.setPhone(request.getPhone());
         newUser.setEmail(request.getEmail());
         newUser.setPassword(request.getPassword());
         newUser.setAuthProvider(AuthProvider.LOCAL);
@@ -25,6 +27,8 @@ public class RegisterService {
         return new RegisterResponse(
                 savedUser.getId(),
                 savedUser.getUsername(),
+                savedUser.getFullName(),
+                savedUser.getPhone(),
                 savedUser.getEmail(),
                 savedUser.getCreatedAt()
         );

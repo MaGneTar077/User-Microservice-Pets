@@ -16,6 +16,8 @@ import java.util.UUID;
 public class ProfileResponse {
     private UUID id;
     private String username;
+    private String fullName;
+    private String phone;
     private String email;
     private String profileImageUrl;
     private LocalDateTime createdAt;

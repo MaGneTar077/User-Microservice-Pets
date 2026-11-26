@@ -180,6 +180,12 @@
 			<version>9.37.4</version>
 		</dependency>
 
+		<dependency>
+			<groupId>com.googlecode.libphonenumber</groupId>
+			<artifactId>libphonenumber</artifactId>
+			<version>8.13.52</version>
+		</dependency>
+
 	</dependencies>
 
 	<dependencyManagement>

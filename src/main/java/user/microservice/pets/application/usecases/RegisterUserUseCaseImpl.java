@@ -9,7 +9,9 @@ import user.microservice.pets.domain.enums.PlatformRole;
 import user.microservice.pets.domain.exceptions.InvalidUserDataException;
 import user.microservice.pets.domain.exceptions.UserAlreadyExistsException;
 import user.microservice.pets.domain.model.User;
+import user.microservice.pets.domain.policies.FullNamePolicy;
 import user.microservice.pets.domain.policies.PasswordPolicy;
+import user.microservice.pets.domain.policies.PhoneNumberPolicy;
 import user.microservice.pets.domain.ports.in.RegisterUserUseCase;
 import user.microservice.pets.domain.ports.out.UserRepositoryPort;
 
@@ -54,6 +56,8 @@ public class RegisterUserUseCaseImpl implements RegisterUserUseCase {
         if (user.getUsername() != null) {
             user.setUsername(user.getUsername().trim());
         }
+        user.setFullName(FullNamePolicy.normalize(user.getFullName()));
+        user.setPhone(PhoneNumberPolicy.normalize(user.getPhone()));
     }
 
     private void validateUserData(User user) {
@@ -73,6 +77,9 @@ public class RegisterUserUseCaseImpl implements RegisterUserUseCase {
             throw new InvalidUserDataException("Invalid email format");
         }
         PasswordPolicy.validate(user.getPassword());
+        if (user.getFullName() != null) {
+            FullNamePolicy.validate(user.getFullName());
+        }
     }
 
     private void checkDuplicates(User user) {

@@ -65,9 +65,9 @@ public class InternalUserController {
     private InternalUserResponse toResponse(User user) {
         return new InternalUserResponse(
                 user.getId(),
-                user.getUsername(), // fullName = username por ahora (no existe full_name en users)
+                user.getDisplayName(), // fullName con fallback a username
                 user.getEmail(),
-                null, // phone: columna no existe todavia
+                user.getPhone(),
                 user.isEmailVerified()
         );
     }
