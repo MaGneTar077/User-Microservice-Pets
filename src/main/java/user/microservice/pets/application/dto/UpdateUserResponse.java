@@ -10,5 +10,7 @@ import java.util.UUID;
 public class UpdateUserResponse {
     private UUID id;
     private String username;
+    private String fullName;
+    private String phone;
     private String email;
 }

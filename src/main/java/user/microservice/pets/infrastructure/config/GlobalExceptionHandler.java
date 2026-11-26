@@ -198,6 +198,15 @@ public class GlobalExceptionHandler {
                 "status", 400));
     }
 
+    @ExceptionHandler(InvalidPhoneException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidPhone(InvalidPhoneException ex) {
+        log.warn("Invalid phone: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
+                "error", ex.getMessage(),
+                "code", "INVALID_PHONE",
+                "status", 400));
+    }
+
     @ExceptionHandler(NotVeterinaryMemberException.class)
     public ResponseEntity<Map<String, Object>> handleNotVeterinaryMember(NotVeterinaryMemberException ex) {
         log.warn("Veterinary context denied - not an active member: {}", ex.getMessage());

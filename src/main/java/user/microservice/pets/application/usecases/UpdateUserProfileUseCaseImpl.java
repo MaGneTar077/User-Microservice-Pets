@@ -7,6 +7,8 @@ import user.microservice.pets.domain.exceptions.InvalidUserDataException;
 import user.microservice.pets.domain.exceptions.UserAlreadyExistsException;
 import user.microservice.pets.domain.exceptions.UserNotFoundException;
 import user.microservice.pets.domain.model.User;
+import user.microservice.pets.domain.policies.FullNamePolicy;
+import user.microservice.pets.domain.policies.PhoneNumberPolicy;
 import user.microservice.pets.domain.ports.in.UpdateUserProfileUseCase;
 import user.microservice.pets.domain.ports.out.UserRepositoryPort;
 
@@ -42,6 +44,18 @@ public class UpdateUserProfileUseCaseImpl implements UpdateUserProfileUseCase {
         }
 
         existingUser.setUsername(updatedUser.getUsername().trim());
+
+        if (updatedUser.getFullName() != null) {
+            String normalizedFullName = FullNamePolicy.normalize(updatedUser.getFullName());
+            if (normalizedFullName != null) {
+                FullNamePolicy.validate(normalizedFullName);
+            }
+            existingUser.setFullName(normalizedFullName);
+        }
+
+        if (updatedUser.getPhone() != null) {
+            existingUser.setPhone(PhoneNumberPolicy.normalize(updatedUser.getPhone()));
+        }
 
         User savedUser = userRepositoryPort.save(existingUser);
         log.info("User profile updated successfully for user: {}", savedUser.getEmail());

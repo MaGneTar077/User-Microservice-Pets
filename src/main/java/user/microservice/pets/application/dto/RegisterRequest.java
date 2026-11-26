@@ -21,4 +21,10 @@ public class RegisterRequest {
     @NotBlank(message = "Password is required")
     @Size(min = 8, message = "Password must be at least 6 characters long")
     private String password;
+
+    /** Nombre para mostrar. Opcional, NO unico. Se normaliza y valida en RegisterUserUseCaseImpl. */
+    private String fullName;
+
+    /** Opcional. Se normaliza a E.164 (region por defecto CO) en RegisterUserUseCaseImpl. */
+    private String phone;
 }

@@ -90,4 +90,44 @@ class UpdateProfileControllerTest {
         verify(updateUserProfileUseCase, times(1))
                 .updateProfile(any(User.class));
     }
+
+    @Test
+    void shouldReturnFullNameWithFallbackAndPhoneWhenUpdated() {
+        // Given
+        UUID userId = UUID.randomUUID();
+        String email = "user@example.com";
+
+        UpdateUserRequest request = new UpdateUserRequest();
+        request.setUsername("newUsername");
+        request.setFullName("Luis Santiago");
+        request.setPhone("3001234567");
+
+        User authenticatedUser = User.builder().id(userId).email(email).build();
+        User updatedUser = User.builder()
+                .id(userId)
+                .username("newUsername")
+                .fullName("Luis Santiago")
+                .phone("+573001234567")
+                .email(email)
+                .build();
+
+        Authentication authentication = mock(Authentication.class);
+        when(authentication.isAuthenticated()).thenReturn(true);
+        when(authentication.getName()).thenReturn(userId.toString());
+
+        SecurityContext securityContext = mock(SecurityContext.class);
+        when(securityContext.getAuthentication()).thenReturn(authentication);
+        SecurityContextHolder.setContext(securityContext);
+
+        when(userRepositoryPort.findById(userId)).thenReturn(Optional.of(authenticatedUser));
+        when(updateUserProfileUseCase.updateProfile(any(User.class))).thenReturn(updatedUser);
+
+        // When
+        ResponseEntity<UpdateUserResponse> response =
+                updateProfileController.updateProfile(userId.toString(), request);
+
+        // Then
+        assertThat(response.getBody().getFullName()).isEqualTo("Luis Santiago");
+        assertThat(response.getBody().getPhone()).isEqualTo("+573001234567");
+    }
 }

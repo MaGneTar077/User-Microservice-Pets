@@ -90,6 +90,7 @@ class AuthControllerTest {
                 .id(userId)
                 .email("user@test.com")
                 .username("testuser")
+                .phone("+573001234567")
                 .authProvider(AuthProvider.LOCAL)
                 .createdAt(LocalDateTime.now())
                 .emailVerified(true)
@@ -154,7 +155,9 @@ class AuthControllerTest {
                 .containsEntry("provider", "LOCAL")
                 .containsEntry("email_verified", true)
                 .containsEntry("platform_role", "USER")
-                .containsEntry("ctx", "USER");
+                .containsEntry("ctx", "USER")
+                // El telefono nunca viaja en el JWT.
+                .doesNotContainKey("phone");
     }
 
     // ---- /auth/refresh (context=USER) ----

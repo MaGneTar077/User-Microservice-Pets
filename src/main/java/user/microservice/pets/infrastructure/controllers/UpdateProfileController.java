@@ -64,6 +64,8 @@ public class UpdateProfileController {
         User domain = User.builder()
                 .id(userId)
                 .username(request.getUsername())
+                .fullName(request.getFullName())
+                .phone(request.getPhone())
                 .build();
 
         User updated = updateUserProfileUseCase.updateProfile(domain);
@@ -71,6 +73,8 @@ public class UpdateProfileController {
         UpdateUserResponse response = new UpdateUserResponse(
                 updated.getId(),
                 updated.getUsername(),
+                updated.getDisplayName(),
+                updated.getPhone(),
                 updated.getEmail()
         );
 

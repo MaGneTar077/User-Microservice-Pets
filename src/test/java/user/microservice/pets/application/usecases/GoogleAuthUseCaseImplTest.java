@@ -89,6 +89,25 @@ public class GoogleAuthUseCaseImplTest {
     }
 
     @Test
+    void shouldStoreFullNameFromGoogleProviderOnNewUser() {
+        //Given
+        String email = "newuser2@gmail.com";
+        String fakeIdToken = "fake-id-token";
+
+        when(googleTokenVerifierService.verify(fakeIdToken))
+                .thenReturn(buildPayload(email, "Luis Santiago", "http://pic.url"));
+        when(userRepositoryPort.findByEmail(email)).thenReturn(Optional.empty());
+        when(userRepositoryPort.existsByUsername(anyString())).thenReturn(false);
+        when(userRepositoryPort.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        //When
+        User result = googleAuthUseCase.authenticate(fakeIdToken);
+
+        //Then
+        assertThat(result.getFullName()).isEqualTo("Luis Santiago");
+    }
+
+    @Test
     void shouldClaimUnverifiedLocalAccountAndMarkEmailVerified() {
         //Given
         String email = "unverified@gmail.com";

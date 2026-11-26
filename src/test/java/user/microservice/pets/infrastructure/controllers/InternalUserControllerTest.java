@@ -70,6 +70,30 @@ class InternalUserControllerTest {
     }
 
     @Test
+    @DisplayName("getById should return fullName and phone when the user has them set, keeping existing fields")
+    void getByIdShouldReturnFullNameAndPhoneWhenPresent() {
+        UUID id = UUID.randomUUID();
+        User user = User.builder()
+                .id(id)
+                .username("gususer")
+                .fullName("Luis Santiago")
+                .phone("+573001234567")
+                .email("gus@example.com")
+                .authProvider(AuthProvider.LOCAL)
+                .emailVerified(true)
+                .platformRole(PlatformRole.USER)
+                .build();
+        when(userRepositoryPort.findById(id)).thenReturn(Optional.of(user));
+
+        InternalUserResponse body = controller.getById(id.toString()).getBody();
+
+        assertThat(body.fullName()).isEqualTo("Luis Santiago");
+        assertThat(body.phone()).isEqualTo("+573001234567");
+        assertThat(body.email()).isEqualTo("gus@example.com");
+        assertThat(body.emailVerified()).isTrue();
+    }
+
+    @Test
     @DisplayName("getById should throw UserNotFoundException (404) when the user does not exist")
     void getByIdShouldThrowWhenUserNotFound() {
         UUID id = UUID.randomUUID();

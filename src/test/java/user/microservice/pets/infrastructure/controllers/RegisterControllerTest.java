@@ -39,6 +39,8 @@ public class RegisterControllerTest {
         RegisterResponse response = new RegisterResponse(
                 UUID.randomUUID(),
                 "Gus",
+                null,
+                null,
                 "gus@example.com",
                 LocalDateTime.now()
         );
